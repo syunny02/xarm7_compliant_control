@@ -321,4 +321,52 @@ xarm7_compliant_control/                 ← 部署包
 
 ---
 
+---
+
+## 附录: Session Log (2026-06-22)
+
+### 路线B 完成项
+
+| # | 模块 | 状态 | 备注 |
+|:-:|:----|:----:|:------|
+| 1 | `controller.py` step() + vic_action | ✅ | 内部差分IK (J_pinv @ dx_cart) |
+| 2 | `core/jacobian_provider.py` | ✅ | MuJoCo/KDL/Approx 三套 |
+| 3 | `core/wrench.py` gravity_comp | ✅ | qfrc_bias / FK 双模式 |
+| 4 | `core/admittance.py` set_stiffness | ✅ | 策略K覆盖 + get_offset() |
+| 5 | `config_loader.py` | ✅ | YAML → dataclass |
+| 6 | E2E测试 6/6 | ✅ | 零力/恒力/刚度/IK/夹爪/安全 |
+| 7 | LoadedPolicy SB3兼容 | ✅ | 自动推断 obs_dim/act_dim |
+| 8 | vic_policy_to_cartesian() | ✅ | [-1,1] → [dx,K,gripper] 映射 |
+
+### 真实评估 (非幻想)
+
+| 模型 | 开门率 | K | 最大力 | 环境 |
+|:----|:-----:|:-:|:-----:|:----|
+| L0_real_seed0 | 47% | 717 (蛮力) | 293N | 当前env ✅ |
+| aligned_300k | 3% | 469 (中等) | 244N | 新env, CPU 8min |
+| V3c存档 (K=115, 100%) | ❌ 失效 | — | — | env漂移，不可复现 |
+
+### 未经验证的假设
+
+- TQC 比 PPO 好 → ❌ 30k冒烟未跑完，纯 benchmark 推测
+- 600k 步可复现 K=115 → ❌ 无证据
+- ROS2 真机可直接用 → ❌ 重力补偿/KDL Jacobian/真机标定都缺
+
+### 产出物
+
+- `door_final_demo.gif` — RL策略开门 (seed=45, 0.321rad)
+- `comparison.png` — 蛮力 vs V3c 对比图
+- `superiority.png` — 6维度优越性雷达
+- `admittance_response.png` — 导纳收敛曲线
+- `door_opener_v*.py` — 5版迭代脚本 (v1-v4 + final)
+- `gen_gif.py` / `view_mujoco.py` / `door_opening_eval.py` — 工具链
+
+### 未完成
+
+- 柔顺策略 (K<300) → 需 GPU 训练 TQC/SAC
+- 真机观测空间 (61-dim) → 需 multimodal 训练
+- 真机标定 → F/T 偏置 + 重力参数 + 摩擦系数
+
+---
+
 *本文档由 Davied（强化学习之父）编写，记录 xarm7_compliant_control 包的设计思路与实现细节。*
