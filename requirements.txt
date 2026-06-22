@@ -1,0 +1,24 @@
+# =====================================
+# xarm7_compliant — 依赖清单
+# =====================================
+# 核心
+numpy>=1.21
+torch>=1.10
+pyyaml>=6.0
+
+# 仿真验证 (可选)
+mujoco>=3.0
+matplotlib>=3.5
+
+# 真机部署 (ROS2, 可选)
+rclpy>=3.0
+sensor_msgs
+geometry_msgs
+xarm7_door_interfaces
+
+# 开发
+pytest>=7.0
+
+# 安装:
+#   pip install -r requirements.txt
+#   pip install -e .

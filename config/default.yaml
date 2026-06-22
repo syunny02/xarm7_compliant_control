@@ -1,0 +1,70 @@
+# xarm7_compliant — 默认配置
+# ============================
+# 适用于 xArm7 开门任务的真机部署参数
+
+# --- 控制器 ---
+controller:
+  ndof: 7
+  control_freq: 100.0       # Hz
+  device: "cpu"
+
+# --- 导纳参数 ---
+admittance:
+  mass: 1.0                 # 虚拟质量 (kg)
+  damping: 12.0             # 虚拟阻尼 (N·s/m)
+  stiffness: 40.0           # 虚拟刚度 (N/m)
+  max_delta_rad: 0.15       # 最大位置偏移 (rad)
+  dt: 0.01                  # 积分步长 (秒)
+
+# --- 变量刚度 (按任务相位) ---
+variable_admittance:
+  enabled: true
+  initial_phase: 0
+  phases:
+    - phase: 0              # 接近门 — 高刚度
+      mass: 0.5
+      damping: 20.0
+      stiffness: 80.0
+      max_delta: 0.03
+    - phase: 1              # 抓握手柄 — 中等刚度
+      mass: 1.0
+      damping: 15.0
+      stiffness: 40.0
+      max_delta: 0.08
+    - phase: 2              # 拉门 — 低刚度
+      mass: 1.5
+      damping: 10.0
+      stiffness: 15.0
+      max_delta: 0.15
+    - phase: 3              # 完成 — 恢复高刚度
+      mass: 0.5
+      damping: 20.0
+      stiffness: 60.0
+      max_delta: 0.05
+
+# --- 力/力矩传感器 ---
+wrench:
+  sensor_frame: "link7"
+  force_scale: 1.0
+  torque_scale: 1.0
+  filter_alpha: 0.3          # 低通滤波 (0-1)
+  max_force_n: 200.0
+  max_torque_nm: 30.0
+  gravity_comp: true
+
+# --- 安全限制 ---
+safety:
+  max_joint_vel: 1.5         # rad/s
+  max_command_delta: 0.05    # 单步最大变化 (rad)
+  max_force_n: 150.0
+  max_torque_nm: 30.0
+  emergency_stop_tau: 50.0   # Nm
+
+# --- Sim-to-Real ---
+sim_to_real:
+  coulomb_friction: 0.15     # N·m
+  viscous_friction: 0.05     # N·m·s/rad
+  control_latency_s: 0.02    # 秒
+  noise_std_pos: 0.002       # rad
+  noise_std_vel: 0.01        # rad/s
+  noise_std_ft: 0.5          # N

@@ -1,0 +1,24 @@
+# xArm7 Compliant Control — 独立 Git 仓库
+# =========================================
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志 / 缓存
+*.log
+MUJOCO_LOG.TXT
+
+# MuJoCo 依赖 (用户本地安装)
+mujoco_py/

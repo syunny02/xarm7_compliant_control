@@ -1,0 +1,57 @@
+# xarm7_compliant — 开门任务专用配置
+# ====================================
+# 针对 xArm7 拉门操作的调优参数
+
+controller:
+  ndof: 7
+  control_freq: 100.0
+
+admittance:
+  mass: 1.5                 # 质量略大 → 更平稳
+  damping: 15.0             # 中等阻尼
+  stiffness: 25.0           # 较低刚度 → 高柔性
+  max_delta_rad: 0.18       # 允许较大偏移 (开门需要)
+  dt: 0.01
+
+variable_admittance:
+  enabled: true
+  initial_phase: 0
+  phases:
+    - phase: 0              # 接近门
+      mass: 0.5
+      damping: 22.0
+      stiffness: 100.0
+      max_delta: 0.02
+    - phase: 1              # 抓握手柄
+      mass: 1.0
+      damping: 12.0
+      stiffness: 30.0
+      max_delta: 0.10
+    - phase: 2              # 拉门 (关键)
+      mass: 2.0             # 惯性大 → 平滑
+      damping: 8.0          # 低阻尼 → 灵活跟随
+      stiffness: 10.0       # 低刚度 → 高顺服
+      max_delta: 0.20       # 大偏移量
+    - phase: 3              # 完成
+      mass: 0.5
+      damping: 20.0
+      stiffness: 60.0
+      max_delta: 0.05
+
+wrench:
+  sensor_frame: "link7"
+  filter_alpha: 0.25        # 加大滤波 (真机噪声)
+  max_force_n: 150.0
+  max_torque_nm: 25.0
+  gravity_comp: true
+
+safety:
+  max_joint_vel: 0.8        # 开门减速
+  max_command_delta: 0.03
+  max_force_n: 120.0
+  emergency_stop_tau: 40.0
+
+sim_to_real:
+  coulomb_friction: 0.20    # 真机摩擦更大
+  viscous_friction: 0.08
+  control_latency_s: 0.025
