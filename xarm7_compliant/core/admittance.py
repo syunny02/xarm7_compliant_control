@@ -204,6 +204,14 @@ class VariableAdmittance:
         """外部设置导纳刚度 (透传给内部 filter)."""
         self._filter.set_stiffness(K)
 
+    def get_offset(self) -> np.ndarray:
+        """返回当前导纳偏移量 Δq."""
+        return self._filter.get_offset()
+
+    def get_velocity(self) -> np.ndarray:
+        """返回当前导纳速度 Δq̇."""
+        return self._filter.get_velocity()
+
     def reset(self, q_init: np.ndarray):
         self._filter.reset(q_init)
 

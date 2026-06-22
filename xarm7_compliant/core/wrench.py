@@ -72,15 +72,27 @@ class WrenchMapper:
         self.cfg = cfg or WrenchConfig()
         self.jacobian_fn = jacobian_fn
         self._body_id = None
+        self._site_id = -1
         self._jac = None
         self._wrench_filtered = np.zeros(6)
         self._filter_initialized = False
 
         if model is not None:
             import mujoco
+            # 先查 body，再查 site
             self._body_id = mujoco.mj_name2id(
                 model, mujoco.mjtObj.mjOBJ_BODY, body_name
             )
+            if self._body_id < 0:
+                self._site_id = mujoco.mj_name2id(
+                    model, mujoco.mjtObj.mjOBJ_SITE, body_name
+                )
+                if self._site_id >= 0:
+                    # 用 site 的 parent body
+                    self._body_id = model.site_bodyid[self._site_id]
+            if self._body_id < 0:
+                print(f"[wrench] WARNING: body '{body_name}' not found, using body 0")
+                self._body_id = 0
             self._jac = np.zeros((6, model.nv))
 
     def bias_wrench(self, raw: np.ndarray, n_samples: int = 100) -> np.ndarray:

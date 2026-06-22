@@ -28,17 +28,27 @@ from ..controller import (
 
 
 def find_scene_xml() -> str:
-    """尝试查找 door_scene.xml."""
+    """尝试查找 door_scene.xml (搜索路径 + 传入路径)."""
+    # 先从已知目录结构查找
     candidates = [
-        "../mujoco_rl/door_scene.xml",
-        "../../mujoco_rl/door_scene.xml",
+        "mujoco_rl/door_real_scene.xml",
         "mujoco_rl/door_scene.xml",
+        "../mujoco_rl/door_real_scene.xml",
+        "../mujoco_rl/door_scene.xml",
+        "../../mujoco_rl/door_real_scene.xml",
+        "../../mujoco_rl/door_scene.xml",
+        "../../../mujoco_rl/door_real_scene.xml",
+        "../../../mujoco_rl/door_scene.xml",
     ]
     for c in candidates:
         p = Path(c)
         if p.exists():
             print(f"[demo] Using scene: {p.resolve()}")
             return str(p.resolve())
+
+    # 找不到时提示用户
+    print("[demo] WARNING: door scene XML not found in search paths.")
+    print("  Pass --scene /path/to/door_scene.xml or run from project root")
     return ""
 
 
@@ -159,14 +169,22 @@ def run_demo():
     plt.show()
 
 
-def run_demo_vic():
+def run_demo_vic(scene_xml="", save_plot=""):
     """Cartesian VIC 模式仿真 demo.
 
     模拟 RL 策略输出 [dx, K, gripper]，验证 IK + 导纳全链路.
+
+    Args:
+        scene_xml: MuJoCo 场景 XML 路径 (door scene)
+        save_plot: 图片保存路径 (空则交互显示)
     """
     import matplotlib.pyplot as plt
 
     from ..config_loader import load_config
+
+    # Door scene 路径
+    if not scene_xml:
+        scene_xml = os.environ.get("DOOR_SCENE_PATH", "")
 
     # 从 YAML 加载配置
     config_path = os.path.join(
@@ -174,6 +192,9 @@ def run_demo_vic():
     )
     if os.path.exists(config_path):
         cfg = load_config(config_path)
+        cfg.scene_xml = scene_xml
+        # demo 用模拟外力，不需要重力补偿
+        cfg.wrench.gravity_comp = False
         print(f"[demo] Loaded config: {config_path}")
     else:
         print(f"[demo] Config not found, using defaults")
@@ -181,6 +202,7 @@ def run_demo_vic():
             ndof=7,
             control_dt=0.01,
             use_mujoco=True,
+            scene_xml=scene_xml,
             cartesian_vic=True,
             stiffness_from_policy=True,
             admittance=AdmittanceConfig(
@@ -193,6 +215,9 @@ def run_demo_vic():
     q_home = np.zeros(7)
     q_home[2] = 0.5  # 初始位
     ctrl.reset(q_home)
+
+    # 仿真状态: 累加关节位置 (代替 MuJoCo mj_step)
+    q_sim = q_home.copy()
 
     log_t, log_dx, log_dq_max, log_K, log_tau = [], [], [], [], []
 
@@ -235,17 +260,26 @@ def run_demo_vic():
         else:
             wrench = np.zeros(6)
 
-        q_cmd = ctrl.step(q_home, wrench, vic_action=vic_action)
+        q_cmd = ctrl.step(q_sim, wrench, vic_action=vic_action)
 
+        tau_mag = np.linalg.norm(ctrl.tau_external) if ctrl.tau_external is not None else 0
+        dq_max = np.max(np.abs(q_cmd - q_sim))
         log_t.append(t)
         log_dx.append(dx[0])
-        log_dq_max.append(np.max(np.abs(q_cmd - q_home)))
+        log_dq_max.append(dq_max)
         log_K.append(ctrl.admittance.cfg.stiffness if hasattr(ctrl.admittance, 'cfg') else K)
-        log_tau.append(np.linalg.norm(ctrl.tau_external) if ctrl.tau_external is not None else 0)
+        log_tau.append(tau_mag)
+
+        # 更新仿真状态: q_sim 跟随 q_cmd (模拟物理执行)
+        q_sim = q_cmd.copy()
 
         if s % 200 == 0:
+            adm_offset = np.max(np.abs(ctrl.admittance.get_offset())) if hasattr(ctrl.admittance, 'get_offset') else 0
             print(f"  t={t:4.1f}s | dx={dx[0]:+.3f} | K={K:.0f} | "
-                  f"Δq_max={log_dq_max[-1]:.4f}")
+                  f"Δq_max={dq_max:.4f} | adm_offset={adm_offset:.4f} | "
+                  f"||τ||={tau_mag:.2f}")
+
+
 
     # 绘图
     fig, axes = plt.subplots(4, 1, figsize=(12, 10), sharex=True)
@@ -265,10 +299,14 @@ def run_demo_vic():
     ax4.legend(); ax4.grid(True)
 
     fig.suptitle("xArm7 Cartesian VIC 全链路仿真 (策略→IK→导纳→安全)")
-    plt.tight_layout()
-    plt.savefig("compliant_demo_vic.png", dpi=150)
-    print(f"\n[demo] VIC模式曲线: compliant_demo_vic.png")
-    plt.show()
+    out_path = save_plot or "compliant_demo_vic.png"
+    plt.savefig(out_path, dpi=150)
+    print(f"\n[demo] VIC模式曲线: {out_path}")
+
+    if not save_plot:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 if __name__ == "__main__":
@@ -276,8 +314,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="xArm7 Compliant Control Demo")
     parser.add_argument("--vic", action="store_true",
                         help="Run Cartesian VIC mode demo")
+    parser.add_argument("--scene", type=str, default="",
+                        help="Path to door scene XML")
+    parser.add_argument("--save-plot", type=str, default="",
+                        help="Save plot to file (default: show interactive)")
+    parser.add_argument("--headless", action="store_true",
+                        help="No GUI, just print results")
     args = parser.parse_args()
+
+    # 如果传入了 scene，通知 find_scene_xml 用
+    if args.scene:
+        # 直接设置环境让 find_scene_xml 优先用这个
+        os.environ["DOOR_SCENE_PATH"] = args.scene
+
     if args.vic:
-        run_demo_vic()
+        run_demo_vic(scene_xml=args.scene, save_plot=args.save_plot)
     else:
         run_demo()
