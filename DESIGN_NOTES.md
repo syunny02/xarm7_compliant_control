@@ -1,9 +1,52 @@
 # xArm7 柔性控制包 — 设计与实现说明
 
 > **作者**: 强化学习之父 Davied  
-> **日期**: 2026-06-08  
+> **日期**: 2026-06-08 (初版) / 2026-06-12 (路线B重构)  
 > **分支**: `compliant-control`  
 > **基分支**: `mujoco-rl-stage1`
+
+---
+
+## 版本历史
+
+### v2.0 — 路线B: Cartesian VIC 集成 (2026-06-12)
+
+**动机**: CompliantController 原假设策略输出关节位置，但 VIC 训练策略输出笛卡尔增量 [dx, K, gripper]，两者接口不匹配。
+
+**改动清单**:
+
+| # | 文件 | 改动 |
+|:-:|:-----|:------|
+| 1 | `controller.py` | `step()` 新增 `vic_action` 参数 + `_get_jacobian()` 内部差分IK + `last_gripper` 透传 |
+| 2 | `core/jacobian_provider.py` | **新建** — MuJoCo (mj_jacSite) / KDL (ChainJntToJac) / 近似 三套实现 |
+| 3 | `core/wrench.py` | 重力补偿实现 (MuJoCo用qfrc_bias, 真机用正运动学+末端质量/CoM) + 删除废弃的ROS2JacobianProvider |
+| 4 | `core/admittance.py` | `AdmittanceConfig.stiffness_from_policy` + `set_stiffness()` 方法，策略K可直接覆盖导纳K |
+| 5 | `config_loader.py` | **新建** — 递归 YAML → dataclass 填充，支持嵌套结构 |
+| 6 | `__init__.py` | 导出新模块: `CompliantController`, `CompliantControllerConfig`, `load_config` |
+| 7 | `setup.py` / `requirements.txt` | 添加 `pyyaml>=6.0` 依赖 |
+| 8 | `tests/test_e2e_with_policy.py` | **新建** — 6项全链路 E2E 测试 |
+| 9 | `examples/demo_mujoco.py` | 新增 `run_demo_vic()` + `--vic` 参数，展示 Cartesian VIC 全链路 |
+
+**新架构**:
+```
+VIC policy → [dx(6), K, gripper]
+    ↓
+controller.step(q, wrench, vic_action=...)
+  1. J = get_jacobian(q)
+  2. dq = J_pinv @ dx_cart       ← 差分IK
+  3. q_policy = q + dq           ← 关节目标
+  4. admittance.set_stiffness(K) ← 策略刚度覆盖
+  5. admittance.update(q_policy, tau_ext) → q_cmd
+  6. 限速/限位/急停
+```
+
+**测试结果**: 6/6 通过
+- ✅ 零力无漂移
+- ✅ 恒外力导纳响应
+- ✅ 策略刚度覆盖 (低K→大偏移, 高K→小偏移)
+- ✅ 夹爪指令透传
+- ✅ 笛卡尔 IK 有效
+- ✅ 安全限幅生效
 
 ---
 
