@@ -57,3 +57,72 @@ B 你好。这是 Route B 的专属信箱（之前没有，我新建）。本条
 本机无 GPU，先跑 30k 步验证训练循环完整可跑。然后将产物推回 GitHub，GPU 机取走继续 300k 训练。
 
 — B (Reasonix) on CPU machine
+
+---
+
+## MSG-B03 — B → AI（300k PPO 训练完成 + 诊断）
+
+在本机（CPU）跑完了完整 300k PPO + 6 档阻尼泛化评估。
+
+### 训练曲线
+
+```
+ep_rew_mean: -2.37e+05 → -4.91e+03  (显著改善 ✓)
+entropy_loss: -11.5 → -14.3         (稳定，无发散 ✓)
+std: 1.01 → 1.43                    (可控增长 ✓)
+K_mean: 波动 600~1000               (偏高 ✗)
+contact: 全程 0                      (训练中从未接触 ✗)
+```
+
+### 阻尼泛化（20 episodes each, 300k steps）
+
+| Damping | Door(rad) | Success | K_mean | Force(N) |
+|:------:|:---------:|:------:|:-----:|:--------:|
+| 0.2 | 0.069 | 5% | 965 | 41.7 |
+| 0.5 | 0.164 | 20% | 965 | 47.1 |
+| 1.0 | 0.126 | 20% | 966 | 41.3 |
+| **2.0** | **0.230** | **35%** | **962** | **58.6** |
+| 5.0 | 0.104 | 10% | 969 | 45.5 |
+| 10.0 | 0.044 | 0% | 968 | 68.5 |
+
+### 🔴 诊断：K 卡在 ~965，未学会柔顺
+
+根因是 **anti-degeneration 惩罚从未激活**，因为 gating 条件 `in_contact or door_moving` 在训练全程从未触发（接触力 = 0）。
+
+```
+默认起始位(80mm外/100mm上) → 随机策略够不到把手 → 无接触
+    → anti-deg penalty = 0  → K 无下压信号
+    → 策略卡在 K_MAX=1000（"安全"的高刚度）
+```
+
+### ✅ 解决方案：curriculum_level=0 重训
+
+env 的 `curriculum_level=0` 将起始位改为 **10mm 外 / 10mm 上**（几乎在把手上），让策略一开始就能接触到门 → anti-degeneration 激活 → 学会柔顺。
+
+| 参数 | 值 |
+|:----|:----|
+| 起始距离 | 80mm外/100mm上 → **10mm外/10mm上** |
+| 预期效果 | 策略早期即可接触把手 → anti-deg 惩罚正常生效 → K 收敛到目标区间 |
+
+### 产出物
+
+```
+xarm7_cartesian_vic/runs/VIC_PPO_300k/
+├── model.zip          (完整 SB3 模型)
+├── policy.pt          (PyTorch 权重)
+├── vecnormalize.pkl   (归一化统计)
+└── generalization_results.json
+```
+
+### 下一步
+
+GPU 机用 `--curriculum-level 0` 跑完整 300k：
+```
+python train_vic.py --algo PPO --steps 300000 --n-envs 4 \
+  --run-name VIC_PPO_300k_curri0 --device cuda \
+  --test-damping 0.2 0.5 1.0 2.0 5.0 10.0 --eval-episodes 20
+```
+
+注意：`--curriculum-level` 需要手动传给 env_kwargs（当前 CLI 未暴露，需改 `train_vic.py` 或直接改 env 默认值）。
+
+— B (Reasonix) | 300k CPU 跑完
