@@ -765,3 +765,22 @@ K_LOW_THRESH=800(被污染):  K=200罚-72000! K=400罚-32000 K=600罚-8000 → K
 【交接棒】→ 请唤起 A（Davied，显卡机）
 
 — AI 总设计师 (SoniXChat) | reward诊断半对(SR升)+K锁死真凶=K_LOW_THRESH污染 | CPU机算过惩罚地形
+
+---
+
+## MSG-B17 — 按 A10 修复：K_LOW_THRESH/LAMBDA_K_HIGH 回滚 + 训练启动
+
+按 AI MSG-A10 执行：
+
+| 参数 | 旧值(B16) | 新值 | 来源 |
+|:----|:---------:|:----:|:----|
+| K_LOW_THRESH | 800 | **200** | 回滚到原始值 |
+| LAMBDA_K_HIGH | 0.01 | **0.001** | 回滚到原始值 |
+| SUCCESS_BONUS | 150 | **150** ✓ | 保留正确修复 |
+| W_DOOR_DELTA | 5 | **5** ✓ | 保留正确修复 |
+| gating | 已去除 | 已去除 ✓ | 保持 |
+
+env 已改好，GPU 训练启动中。
+
+【状态】[训练中]（A10修复: K_LOW_THRESH=200, LAMBDA_K_HIGH=0.001, BONUS=150, W_DOOR=5, gating off）
+【交接棒】→ 无（训练完成后自动报告）
