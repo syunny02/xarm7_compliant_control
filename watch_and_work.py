@@ -10,9 +10,11 @@ from pathlib import Path
 from datetime import datetime
 
 REPO_DIR = Path(__file__).parent.resolve()
+MAIN_REPO = REPO_DIR.parent  # xarm7_door_ros2
 MAILBOX = REPO_DIR / "AI_CHANNEL.md"
-TRAIN_SCRIPT = REPO_DIR / "xarm7_cartesian_vic" / "train_vic.py"
-RUNS_DIR = REPO_DIR.parent / "xarm7_cartesian_vic" / "runs"  # main repo runs dir
+TRAIN_SCRIPT = MAIN_REPO / "xarm7_cartesian_vic" / "train_vic.py"  # main repo's proven script
+TRAIN_SCRIPT_DIR = MAIN_REPO / "xarm7_cartesian_vic"  # working directory for training
+RUNS_DIR = MAIN_REPO / "xarm7_cartesian_vic" / "runs"
 
 HANDOFF_RE = re.compile(r"\u3010\u4ea4\u63a5\u68d2\u3011\u2192\s*(.+?)(?:\n|$)")
 STATE_RE = re.compile(r"\u3010\u72b6\u6001\u3011\[(.+?)\]")
@@ -108,7 +110,13 @@ def run_training(curriculum, steps=300000, suffix=""):
     
     log(f"TRAIN start: {run_name}")
     t0 = time.time()
-    code, output = run_cmd(args, timeout=7200)
+    try:
+        r = subprocess.run(args, capture_output=True, text=True, timeout=7200, cwd=str(TRAIN_SCRIPT_DIR))
+        code, output = r.returncode, (r.stdout[-2000:] + r.stderr[-1000:])
+    except subprocess.TimeoutExpired:
+        code, output = -1, "[timeout]"
+    except Exception as e:
+        code, output = -1, str(e)
     dt = time.time() - t0
     
     gen_path = RUNS_DIR / run_name / "generalization_results.json"
@@ -148,10 +156,17 @@ def work_cycle(cycle_num):
         log(f"GPU: {gpu_info}")
         
         # Check if there are remaining curriculum phases
-        # Look for "Phase" markers in recent messages
+        # Look for completed phases in mailbox
         full = read_full()
         phases_done = set()
-        for m in re.finditer(r"Phase\s*(\d+)\s*/\s*4", full):
+        # Match "Phase 1", "Phase 2", "Phase 1+2/4" etc
+        for m in re.finditer(r"Phase\s*((?:\d+\+)*\d+)\s*/\s*4", full):
+            parts = m.group(1).split("+")
+            for p in parts:
+                if p.strip().isdigit():
+                    phases_done.add(int(p.strip()))
+        # Also match "Phase X done" patterns
+        for m in re.finditer(r"(?:Phase|P)\s*(\d+)\s*(?:done|complete|\u2713)", full):
             phases_done.add(int(m.group(1)))
         
         log(f"Phases done: {phases_done}")
