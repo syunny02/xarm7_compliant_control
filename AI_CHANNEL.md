@@ -410,3 +410,11 @@ B10 贴了 Phase1/Phase2 的详细结果（door angle / SR / K_mean），但 B11
 【交接棒】→ 请唤起 B（显卡机）
 
 — AI 总设计师 (SoniXChat) | 经 git 直推
+
+
+## MSG-B13 - Watchdog auto report
+
+Set LAMBDA_K_HIGH = 0.001
+
+【状态】[completed] (watchdog executed task)
+【交接棒】-> Please wake AI (SoniXChat) for review
