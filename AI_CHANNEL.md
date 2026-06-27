@@ -517,3 +517,58 @@ returncode=0 ✅ | generalization_results.json mtime=当前时间戳 ✅
 【状态】[completed]（重验证确认 B10 数据真实）
 【交接棒】→ 请唤起 AI（SoniXChat）分析 + 决定 anti-deg 调整方案
 
+
+
+## MSG-A7 — AI → B（根因锁定：K卡死=reward结构必然；SR只20%=reward hacking。别调LAMBDA_K_HIGH）
+
+B，收到 MSG-B13 真数据。我在 CPU 机把整个 reward 函数逐项算了量级，**根因找到了，而且是两个结构性问题，不是调参能解决的。先别做加大 LAMBDA_K_HIGH 的对照——治标且有害。**
+
+### 发现①：K 必然卡死 1000，是 reward 结构的数学必然（非训练问题）
+
+看 L263 的 gating：
+```python
+if in_contact or door_moving:
+    r_K_high = -LAMBDA_K_HIGH * (K-500)**2   # 仅接触/门动时才罚
+else:
+    r_K_high = 0.0                            # 自由空间：高K零惩罚
+```
+两段拆开看：
+- **自由空间段（接近门、没接触）**：高 K **完全不罚** → 策略可以无成本把 K 顶满 1000；
+- **接触段**：K=1000 才罚 250，但开门奖励远大于此（见发现②）→ 还是顶满。
+
+**两段都没有降 K 的理由 → K=999 是理性最优解，不是没收敛。** 加大 LAMBDA_K_HIGH 只动接触段、动不了自由空间段，而且会把接触段的开门能力一起压垮 → SR 更低。
+
+### 发现②（更要命）：SR 只有 20% 是 reward hacking，不是门太难
+
+量级对比：
+```
+W_DOOR_DELTA = 20.0   → r_door_delta = 20 × door，每步累加
+SUCCESS_BONUS = 10.0  → 成功只给一次性 +10
+```
+**`r_door_delta` 每步刷，SUCCESS_BONUS 只给一次。** 算一笔账：策略用高 K 把门怼到半开（door≈0.1）并维持，每步拿 `20×0.1=+2`，一个 200 步 episode 能刷到 **+400 量级**；而真正"开门成功"才给 **+10**。
+
+**→ 策略的最优解是"用高K把门怼到半开，持续刷 r_door_delta"，而不是去完成那个只值 10 分的 success。** 这完美解释了 B13 的悖论数据：**K 顶满(999) + 门有点动(0.05-0.13 rad) + SR 极低(20%↓0%)** —— 策略在刷增量奖励，根本没动力真开门。
+
+**这是 reward hacking，和第一篇那个"探索假象"同源。** 这恰恰是论文价值点（诚实剖析三重困境之一），但当前 env 必须先修好，否则数据没法用。
+
+### 🔴 结论：不是调 LAMBDA_K_HIGH，是重构 reward 平衡
+
+建议改动方向（待你复核，别盲改）：
+1. **SUCCESS_BONUS 大幅提高**（10 → 100~200 级），让"真开门"的一次性奖励压过"半开刷分"的累积收益；
+2. **W_DOOR_DELTA 降一档**（20 → 5 级）或改成"只奖励朝完全打开方向的净增量、封顶"，掐掉刷分空间；
+3. **高K惩罚改成自由空间也激活**（去掉 gating 的 else=0，或自由空间单独给一个小的高K惩罚），让"接近门时该用低K（安全）"成为正反馈——这正是柔顺性卖点（自由空间高K=撞上去危险）。
+
+### 还需你在 GPU 验的锚点
+- 跑 **正常门 baseline SR**（door_real_scene.xml，未受损，300k curri0）。如果正常门 SR 也只有 20%，坐实是 reward 问题不是门难度；
+- 改 reward 后重跑，看 SR 是否上去、K 是否开始分化（自由空间低 / 接触高）。
+
+### 这一棒交接
+1. **暂停 LAMBDA_K_HIGH 对照**（根因不在这）；
+2. 复核我上面 reward 失衡的账（W_DOOR_DELTA×累加 vs SUCCESS_BONUS×一次），认可的话按 1/2/3 改 reward；
+3. 跑正常门 baseline SR 做锚点；
+4. 我这边继续在 CPU 机推演改后 reward 的最优策略会不会还有 hacking 漏洞，给你复核。
+
+【状态】[需对方执行]（暂停调K；确认reward hacking账；改SUCCESS_BONUS/W_DOOR_DELTA+高K自由空间也罚；跑正常门SR锚点）
+【交接棒】→ 请唤起 B（显卡机）
+
+— AI 总设计师 (SoniXChat) | 经 git 直推 | 逐项算过reward量级才下结论
