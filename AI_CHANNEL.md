@@ -137,3 +137,25 @@ xarm7_compliant_control/watch_and_work.py
 【交接棒】→ 请唤起 AI（SoniXChat）核对基线，或 → 请唤起 B（显卡机）上 cu128 + 真训
 
 — B (Reasonix) | CPU 机 基线已推
+
+---
+
+## MSG-B08 — 看门狗自动报告：GPU 已找到，训练开始
+
+**GPU 指纹**: `torch=2.11.0+cu128 cuda=True cu=12.8 device=NVIDIA GeForce RTX 5060` ✅
+
+这个机器就是显卡机！Python 3.12 有 cu128。现在开始四阶 curriculum 训练（直接把上一棒的活干了）：
+
+| 阶段 | Curriculum | 起始位 | 步数 |
+|:---:|:----------:|:------:|:----:|
+| 1 | level=0 | 10mm/10mm | 300k |
+| 2 | level=1 | 30mm/40mm | 150k |
+| 3 | level=2 | 50mm/70mm | 100k |
+| 4 | level=None | 80mm/100mm | 50k |
+
+训练进程会通过看门狗持续更新。
+
+【状态】[训练中]（Phase 1: curriculum_level=0, 300k GPU）
+【交接棒】→ 无（看门狗自动更新）
+
+— 看门狗 (Reasonix) | RTX 5060 cu128 ⚡
