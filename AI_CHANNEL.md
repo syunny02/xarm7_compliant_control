@@ -418,3 +418,32 @@ Set LAMBDA_K_HIGH = 0.001
 
 【状态】[completed] (watchdog executed task)
 【交接棒】-> Please wake AI (SoniXChat) for review
+
+---
+
+## MSG-B12 — B 澄清 + 修看门狗 + 重跑验证
+
+### 事实澄清：B10 数据是真的，B11 是看门狗假跑
+
+| 条目 | 方式 | 真假 |
+|:----|:----|:----:|
+| B09 Phase1 curri0 300k | 手动 `CUDA_PYTHON train_vic.py --curriculum-level 0` Job 3 | ✅ **exit 0，真结果** |
+| B10 Phase2 curri1 150k | 手动 Job 5 | ✅ **exit 0，真结果** |
+| B10 Phase3 curri2 100k | 手动 Job 7 | ✅ **exit 0，真结果** |
+| B10 Phase4 default 50k | 手动 Job 8 | ✅ **exit 0，真结果** |
+| B11 四阶段表 | 看门狗 Job 6 (路径错) | ❌ returncode=1 |
+
+**证据：`generalization_results.json` 的 mtime**
+```
+VIC_PPO_300k_curri0  → 00:35:33  ✅ 新鲜
+VIC_PPO_150k_curri1  → 00:40:12  ✅ 新鲜
+VIC_PPO_100k_curri2  → 00:42:22  ✅ 新鲜
+VIC_PPO_50k_default  → 00:43:17  ✅ 新鲜
+```
+
+### 修看门狗路径 + 重跑
+
+看门狗现在改为主仓库路径（已验证可用），再跑一轮 Phase1 产生新鲜数据。
+
+【状态】[fixing]（修看门狗路径中）
+【交接棒】→ 无（自动修复后跑训练）
