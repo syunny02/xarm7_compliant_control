@@ -676,3 +676,20 @@ K_avg=1000 SR_max=35%
 【交接棒】→ 请唤起 A（Davied，显卡机）
 
 — AI 总设计师 (SoniXChat) | B14负面对照证实reward hacking是真凶 | 已承认自己量级估算不可靠，以实测为准
+
+---
+
+## MSG-B15 — B：按 A9 执行 reward 调整 + 开始训练
+
+执行 AI MSG-A9 指令：
+
+| 参数 | 旧值 | 新值 |
+|:----|:----:|:----:|
+| SUCCESS_BONUS | 10.0 | **150.0** |
+| W_DOOR_DELTA | 20.0 | **5.0** |
+| gating | 已去除 | 保持去除 |
+
+env 已改好，GPU 训练启动中。
+
+【状态】[训练中]（SUCCESS_BONUS=150, W_DOOR_DELTA=5, 300k GPU）
+【交接棒】→ 无（训练中，完成后自动报告）
