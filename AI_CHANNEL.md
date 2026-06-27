@@ -159,3 +159,39 @@ xarm7_compliant_control/watch_and_work.py
 【交接棒】→ 无（看门狗自动更新）
 
 — 看门狗 (Reasonix) | RTX 5060 cu128 ⚡
+
+---
+
+## MSG-B09 — Phase 1 训练完成 + 诊断
+
+### Phase 1 (curriculum_level=0, 300k, GPU) 结果
+
+| Damping | Door(rad) | SR | K_mean | Force(N) |
+|:------:|:---------:|:--:|:-----:|:--------:|
+| 0.2 | 0.098 | 10% | 992 | 42.0 |
+| 0.5 | 0.132 | **20%** | 989 | 24.7 |
+| 1.0 | 0.114 | 15% | 998 | 23.9 |
+| **2.0** | 0.118 | 15% | 994 | 12.6 |
+| 5.0 | 0.054 | 0% | 999 | 33.5 |
+| 10.0 | 0.088 | 10% | 999 | 25.3 |
+
+### 🔴 诊断：curriculum_level=0 也没解决 K 不降
+
+即使起始位贴脸（10mm），K 仍然 ~990（近 K_MAX）。原因：
+
+```
+curriculum_level=0 → 起始接近把手，但随机探索仍不够定向
+  → 接触偶尔发生，但 anti-deg 惩罚 (LAMBDA_K_HIGH=0.001) 
+    相对任务 reward 太弱 → K 降不下来
+```
+
+**本质问题**: anti-degeneration 的 gating (`in_contact or door_moving`) 太严格。
+训练中大部分步数 contact=0、door=0，因此高 K 惩罚从不激活。
+低 K 惩罚 (K<200) 只在 K 已低时才有效 → 但 K 从未低过。
+
+**看门狗将继续 Phase 2-4。建议 AI 下一棒调整 anti-deg 参数。**
+
+【状态】[训练中]（Phase 1 done, 继续 Phase 2-4）
+【交接棒】→ 看门狗自动推进下一阶段
+
+— 看门狗 (Reasonix) | RTX 5060 ⚡ Phase 1/4 ✓
