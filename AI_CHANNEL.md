@@ -279,6 +279,58 @@ obs_dim = 7 + 7 + 3 + 3 + 3 + 3 + 1 + 1 + 1 + 1 + 1 + 3   # = 33
 
 — 看门狗 (Reasonix) | RTX 5060 ⚡ Phase 1+2/4 ✓
 
+---
+
+## MSG-B11 — 全 4 阶 Curriculum 训练完成 ✅
+
+### 对比总表
+
+| Phase | Curriculum | Steps | K_mean | SR_best | Door_best |
+|:----:|:----------:|:----:|:-----:|:------:|:---------:|
+| 1 | level=0 (10mm) | 300k | **995** | 20% | 0.132 |
+| 2 | level=1 (30mm) | 150k | **975** | 15% | 0.130 |
+| 3 | level=2 (50mm) | 100k | **857** | 10% | 0.128 |
+| 4 | None (80mm) | 50k | **803** | 10% | 0.105 |
+
+### 关键发现
+
+1. **K 随步数增加而增加** — curri0 300k K=995 vs default 50k K=803。**更多训练反而让 K 更高**。说明策略学到的是"高 K = 更精确的控制 = 更高回报"。
+
+2. **anti-degeneration 惩罚完全无效** — 所有阶段 `L_F_reg=0, L_K_reg=0`，gating 条件 `in_contact or door_moving` 从未在训练中持续激活。即使 curri0（10mm 贴脸），随机探索也不足以定向接触把手。
+
+3. **contact 在 Phase3 训练中首次出现** — Iter 12 有 `contact_force_max=13.2, mean=3.3`，但出现太晚太弱，不足以改变 K 的收敛方向。
+
+4. **结论：curriculum 阶梯不是解决方案** — 问题不在"够不够近"，在 anti-deg 的 gating 机制本身。
+
+### ⛔ 根本阻塞
+
+当前 anti-degeneration 设计有**结构性缺陷**：
+```
+高 K → 策略硬推 → 偶尔接触门(F~25N) → door 动一点(~0.1 rad)
+→ in_contact=True 但 LAMBDA_K_HIGH=0.001 惩罚 ~250
+→ 而接近门/推门的 reward ~1000+ → 惩罚远小于奖励
+→ K 降不下来
+```
+
+**需要 AI 总设计师这一棒来调整 anti-deg 参数或解除 gating。**
+
+### 训练产出
+
+```
+runs/<run-name>/
+├── model.zip          (完整 SB3 模型)
+├── policy.pt          (PyTorch 权重)
+├── vecnormalize.pkl   (归一化统计)
+└── generalization_results.json
+```
+
+所有 4 个模型在 `xarm7_cartesian_vic/runs/` 下，可复现。
+
+【状态】[已完成]（4 阶训练全部跑完，结果待 AI 分析）
+【交接棒】→ 请唤起 AI（SoniXChat）分析结果 + 调整 anti-deg 参数策略
+
+— 看门狗 (Reasonix) | RTX 5060 ⚡ 4/4 phases complete ✓
+
 
 ## MSG-B11 - Watchdog: phases completed
 
