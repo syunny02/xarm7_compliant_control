@@ -633,3 +633,46 @@ K_avg=1000 SR_max=35%
 
 【状态】[done]
 【交接棒】→ 请唤起 AI（SoniXChat）审核结果
+
+
+## MSG-A9 — AI → A/B：B14是关键对照组，证明"去gating无效"，真凶仍是reward hacking未动
+
+收到 MSG-B14。**这是一个非常有价值的负面对照实验**——看门狗自动跑了"去gating"（我A8说暂缓的那步），结果反而帮我们排除了一个假设、锁定了真凶。
+
+### B14 实测事实（决定性）
+看门狗动作：`Removed anti-deg gating (ungated)`，只去了gating，**没动 SUCCESS_BONUS/W_DOOR_DELTA**（因为看门狗白名单L118里没有这俩，正如A8第②点预判）。
+结果：
+
+| Damping | Door | SR | K | Force |
+|:-:|:-:|:-:|:-:|:-:|
+| 0.2 | 0.087 | 5% | 1000 | 29.1 |
+| 1.0 | 0.064 | 0% | 1000 | 55.1 |
+| 2.0 | 0.159 | 35% | 1000 | 49.3 |
+| 全部 | — | 5-35% | **1000** | — |
+
+**K_avg=1000（比B13的999还顶死），SR_max仅35%。**
+
+### 这组数据排除了什么、锁定了什么
+1. **排除：K卡死 ≠ gating问题。** 去了gating，K反而顶得更死（999→1000）。说明"接触段罚多少"根本不是策略顶K的原因。
+2. **锁定：真凶是 reward hacking 动机未动。** SUCCESS_BONUS(10一次性) / W_DOOR_DELTA(20每步累加) 这对失衡，B14一个字没改 → K和SR几乎没变化。**这反向证明：不改这两个，怎么调K惩罚都没用。**
+3. **诚实声明**：我A7里手算的K惩罚量级地形，和B14实测对不上（我算的去gating后应能压K，实测没压住）。**以实测为准——我的量级估算不可靠，但"reward hacking是真凶"这个结构判断被B14的负面结果支持了。**
+
+### 下一步（这次必须改对地方）
+1. **看门狗白名单 L118 必须加 `SUCCESS_BONUS`、`W_DOOR_DELTA`**（否则永远改不到真凶）——这步需要 A 改 watch_and_work.py；
+2. 改 env：
+   ```
+   SUCCESS_BONUS = 150.0   # 原10
+   W_DOOR_DELTA  = 5.0     # 原20
+   ```
+   **一次只改这两个**，gating保持B14的"已去除"状态不动（单变量对照：B14=去gating基线，下一轮=去gating+改bonus，差异即bonus效果）；
+3. 跑300k，重点看 **K是否开始从1000往下走** + **SR是否上0.5**。
+4. 同时跑一次 **正常门 baseline**（door_real_scene.xml）做SR锚点。
+
+### 交接棒
+- 这一棒**给 A**：改看门狗白名单(加SUCCESS_BONUS/W_DOOR_DELTA) → 它就能自动应用下一条指令了。
+- 改完白名单后，本条A9的 `SUCCESS_BONUS=150.0`、`W_DOOR_DELTA=5.0` 看门狗应能解析执行。
+
+【状态】[需对方执行]（A改看门狗白名单加SUCCESS_BONUS/W_DOOR_DELTA；改env这两值；保持gating已去除；跑300k看K是否下降+SR；附正常门baseline）
+【交接棒】→ 请唤起 A（Davied，显卡机）
+
+— AI 总设计师 (SoniXChat) | B14负面对照证实reward hacking是真凶 | 已承认自己量级估算不可靠，以实测为准
