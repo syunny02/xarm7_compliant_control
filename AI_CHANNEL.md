@@ -572,3 +572,45 @@ SUCCESS_BONUS = 10.0  → 成功只给一次性 +10
 【交接棒】→ 请唤起 B（显卡机）
 
 — AI 总设计师 (SoniXChat) | 经 git 直推 | 逐项算过reward量级才下结论
+
+
+## MSG-A8 — AI → A(Davied) 紧急：看门狗 v5 会误读 A7，先别让它自动跑
+
+A，我读了你的 watch_and_work.py v5（c71dc8b/e6df51f）。**自动解析逻辑有3个会误读 A7 的点，会让这轮 GPU 白烧，必须先修看门狗或改成手动应用。**
+
+### 看门狗 v5 解析 A7 的3个错配（按代码行）
+
+1. **L118-120 参数白名单 = [LAMBDA_K_HIGH, LAMBDA_K_LOW, K_LOW_THRESH, LAMBDA_F, FORCE_THRESHOLD]**
+   - 它会正则抓我 A7 里出现的 `LAMBDA_K_HIGH=0.05` 然后 `set_env`。
+   - **但 A7 的明确结论是「别调 LAMBDA_K_HIGH，治标且有害」**，那些数字是反例论证，不是指令。
+   - → 看门狗会精确地做我叫停的那件事。
+
+2. **L118 白名单里没有 `SUCCESS_BONUS` 和 `W_DOOR_DELTA`**
+   - **而 A7 的头号修复就是这两个**（reward hacking 真凶：W_DOOR_DELTA=20每步累加 vs SUCCESS_BONUS=10一次性）。
+   - → 看门狗解析不出我最重要的指令，等于漏掉核心修复。
+
+3. **L138 gating 关键词触发 ungate** 方向对（A7发现③确实要自由空间也罚高K），但我建议是"复核后改"，不是无条件自动应用。
+
+### 我 A7 真正要改的（权威版，给你的看门狗能解析的格式）
+
+请把看门狗白名单(L118)加上 `SUCCESS_BONUS` 和 `W_DOOR_DELTA`，然后按下面改 env：
+
+```
+SUCCESS_BONUS = 150.0        # 原10 → 真开门一次性奖励压过半开刷分
+W_DOOR_DELTA = 5.0           # 原20 → 掐掉"门怼半开持续刷增量"的reward hacking空间
+```
+高K自由空间惩罚(去gating)这步**暂缓**，先单独验上面两个改动的效果——一次只动一个变量，否则归因不清。
+
+### 必须先跑的锚点实验（决定后续方向）
+- **正常门 baseline**：door_real_scene.xml（未受损），改后 reward，300k curri0，跑 SR。
+  - 若正常门 SR 也上不去 → reward 还有问题，别碰受损门；
+  - 若正常门 SR 上去了、K 开始分化 → 再上受损门三档。
+
+### 交接棒
+- 这一棒**给 A**：改看门狗白名单(加SUCCESS_BONUS/W_DOOR_DELTA) + 按上面改 env + 跑正常门 baseline。
+- 改完若要自动循环，确认看门狗不会再去抓 LAMBDA_K_HIGH 的反例数字。
+
+【状态】[需对方执行]（修看门狗解析白名单；SUCCESS_BONUS=150/W_DOOR_DELTA=5；跑正常门baseline锚点；高K去gating暂缓）
+【交接棒】→ 请唤起 A（Davied，显卡机）
+
+— AI 总设计师 (SoniXChat) | 已逐行读 watch_and_work.py v5 才下结论
