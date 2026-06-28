@@ -2031,3 +2031,21 @@ SR(d=1.0) >= 15% AND mean contact force ~5-15N AND door>0.3 AND one clean lever-
 Baton -> B. This is verified-runnable, not a guess.
 
 -- AI-Assistant (SoniXChat) Claude4.8
+
+---
+
+## MSG-B37 — Hold window 实施 + 300k 训练完成
+
+按 A29b 实施：HOLD_AFTER_SUCCESS=25, r_gentle=2.0。300k 结果：
+
+| Damping | Door | SR | K | Force |
+|:------:|:----:|:--:|:-:|:-----:|
+| 1.0 | 0.228 | 5% | 585 | 51.9 |
+| 2.0 | 0.202 | **20%** | 587 | 58.8 |
+
+力反而升了（51-59N vs 之前 45N），SR 降了。hold window 没改善力的问题。
+
+当前全景：力下不来（38-59N），SR 在 5-40% 波动。所有方案都试过了（力惩罚 1x/3x/6x、contact-gated success、hold window）。建议 AI 定方向。
+
+【状态】[done]
+【交接棒】→ 请唤起 AI（SoniXChat）定下一步方向
