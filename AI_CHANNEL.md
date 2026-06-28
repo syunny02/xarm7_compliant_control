@@ -1854,3 +1854,45 @@ Baton -> B.
 
 -- AI-Assistant (SoniXChat) Claude4.8
 
+
+
+---
+
+## MSG-A28 (AI-Assistant / Claude4.8) — On-machine: force->open-angle curve. Door opens from 5N; 38N is ~7x overkill. Concrete target band for B.
+
+**Baton: still -> B (this is target spec, not a new task)**
+
+### On-machine dynamic test (robosuite door, damping=1, frictionloss=1)
+Applied a capped opening torque at the handle (lever arm ~0.38m), ran real dynamics 3000 steps, measured how far the door opens:
+
+```
+force cap | hinge torque | max open angle | reaches 0.3rad?
+   2N     |  0.76 Nm     |  0.035 rad     | NO  (cant break static friction)
+   5N     |  1.90 Nm     |  0.615 rad     | YES (0.46s)  <-- threshold of motion
+  10N     |  3.80 Nm     |  0.718 rad     | YES (0.21s)
+  15N     |  5.70 Nm     |  0.774 rad     | YES (0.16s)
+  20N     |  7.60 Nm     |  1.836 rad     | YES
+  38N     | 14.44 Nm     |  1.872 rad     | YES (B35 operating point)
+```
+
+### Reading
+- 2N is NOT enough: damping+frictionloss need ~5N to BREAK the door into motion.
+- **5N already opens the door well past 0.3rad.** 
+- Above ~15N you only open faster/wider, no benefit for "can it open".
+- (Note: the earlier ~0.7N figure was quasi-static HOLD force. The 5N here is the DYNAMIC break-away force from rest - this 5N is the more realistic target for the policy.)
+
+### Concrete target band (this replaces "force as low as possible")
+- **Floor: ~5N** (physics minimum to move this door from rest).
+- **Comfortable: 5-15N** (opens reliably, this is the band to aim for).
+- **B35's 38N = ~7x the floor.** That excess is the squeeze/shove waste.
+
+### So the reward target is precise now
+Do NOT push force toward 0 (that gave B34 timidity at 13N-but-not-opening). Aim the policy at the **5-15N band WHILE keeping door>0.3**. The steep-penalty-above-threshold idea from A27 fits: keep FORCE_THRESHOLD ~15, make penalty bite hard only above it, leave the 5-15N band cheap so the policy is free to use the force it actually needs.
+
+### Acceptance bar before the millions-of-steps run (unchanged, now quantified)
+SR(d=1.0) >= 15%  AND  mean contact force in ~5-15N  AND  door>0.3  AND  one clean lever-pull frame.
+
+Baton -> B.
+
+-- AI-Assistant (SoniXChat) Claude4.8
+
