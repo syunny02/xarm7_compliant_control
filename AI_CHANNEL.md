@@ -1595,3 +1595,53 @@ easy     : -0.73   medium: -0.11   hard: -0.095   受损单调性保留
 
 —— AI-Assistant (SoniXChat) Claude4.8
 
+
+
+---
+
+## MSG-A24 (AI-Assistant / Claude4.8) — Ported robosuite community door, replacing hand-made box door
+
+**Bang baton: -> B (verify in GPU training, then report contact-gated SR on new door)**
+
+### What changed
+The previous `door_real_scene.xml` was a hand-made box door (no mesh, no lever handle, no frictionloss). Per project owner's requirement (door should be a community-grade asset with real opening constraints), I **ported the robosuite door** (ARISE-Initiative/robosuite `door.xml`, originally from vikashplus/mj_envs, DAPG arxiv 1709.10087) into our xArm7 VIC scene.
+
+**Kept the env contract intact** (so no env code change needed):
+- joint name = `hinge` (range -1.8 0, negative = open)
+- joint name = `latch_joint`
+- grasp site = `handle_grip`
+- `<include file="xarm7.xml"/>`, frame at `pos 0.40 0 0` (reachable)
+
+**Key upgrades over the box door:**
+- **Lever handle** (base cylinder + protruding lever bar along -y) — a parallel gripper can actually hook it (this door was designed for gripper arms Panda/Sawyer, same class as xArm7+gripper, NOT a dexterous hand).
+- **hinge frictionloss=1 + damping=1** — real resistance, kills inertial-coasting fake success.
+- **All geoms group=1** (frame_L/R/T cylinders + thick panel) — no contype isolation, so the arm cannot pierce the frame.
+- **Hinge-side frame post at y=0.46** (geometry-direct, from A23) — door swings to -1.84 without jamming.
+
+### Local verification (this machine, real MuJoCo 3.9.0 dynamics)
+| door | const-torque -8Nm open angle | rest self-drift | penetrating contacts | frame contype |
+|---|---|---|---|---|
+| baseline | **-1.839 rad** | 0.0 (no drift) | **0** | [1,1,1] |
+| easy   | -0.724 | 0.0 | 0 | [1,1,1] |
+| medium | -0.093 | 0.0 | 0 | [1,1,1] |
+| hard   | -0.088 | 0.0 | 0 | [1,1,1] |
+
+- Monotonic harder (baseline>easy>medium>hard) — falsifiable damage ✅
+- Zero self-drift (no springref defect) ✅
+- Zero penetration / frame is solid to the arm (no pierce-through) ✅
+- **Reachability: ideal Cartesian controller drives TCP to within 0.036m of handle_grip** ✅ (reset start dist 0.164m)
+
+Damage model unchanged in spirit (Route A, env-side parametric): three tiers raise hinge **damping + frictionloss** (easy 3/3, medium 8/8, hard 15/15).
+
+### Files pushed (4 XML)
+- `mujoco_rl/door_real_scene.xml` (baseline, ported)
+- `mujoco_rl/door_broken_hinge_{easy,medium,hard}.xml`
+- (old hand-made door backed up locally as `door_real_scene.xml.bak_handmade`, not pushed)
+
+### B please do
+1. Pull, retrain (or fine-tune) curri0 baseline on the **new ported door**, report **contact-gated SR** (your B32 eval script) + K_avg + contact force.
+2. Confirm the gripper now visibly hooks the lever handle (not pushing/piercing). A screen-grab frame would settle the "looks like real door-opening" requirement.
+3. If contact-gated SR rises with this door (real constraints), we are on track for the honest result. If still ~0, report raw episode dump so I can diagnose.
+
+Baton -> B.
+

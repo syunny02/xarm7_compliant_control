@@ -1,38 +1,48 @@
-<?xml version='1.0' encoding='utf-8'?>
-<mujoco model="xarm7 door scene (VIC broken_hinge_hard)">
-  <include file="xarm7.xml" />
-  <statistic center="0.4 0 0.4" extent="1.0" />
+<mujoco model="xarm7 door scene (robosuite-port broken hard)">
+  <include file="xarm7.xml"/>
+  <statistic center="0.4 0 0.4" extent="1.0"/>
   <visual>
-    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
-    <rgba haze="0.15 0.25 0.35 1" />
-    <global azimuth="150" elevation="-20" offwidth="1280" offheight="960" />
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="150" elevation="-20" offwidth="1280" offheight="960"/>
   </visual>
   <asset>
-    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
-    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
-    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
-    <material name="door_mat" rgba="0.55 0.36 0.20 1" />
-    <material name="frame_mat" rgba="0.3 0.3 0.32 1" />
-    <material name="handle_mat" rgba="0.85 0.85 0.2 1" />
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    <material name="door_mat" rgba="0.55 0.36 0.20 1"/>
+    <material name="frame_mat" rgba="0.3 0.3 0.32 1"/>
+    <material name="handle_mat" rgba="0.85 0.85 0.2 1"/>
   </asset>
   <worldbody>
-    <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
-    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
-    <geom type="cylinder" size=".06 .06" pos="0 0 .06" rgba="1 1 1 1" />
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+    <geom type="cylinder" size=".06 .06" pos="0 0 .06" rgba="1 1 1 1"/>
+    <!-- ===== Door ported from robosuite door_lock (ARISE-Initiative/robosuite) =====
+         Original: door.xml, latch lever handle, frictionloss hinge, group=1 unified collision.
+         Adapted to xArm7 VIC env contract: joint=hinge, joint=latch_joint, site=handle_grip,
+         negative open direction (range -1.8 0), frame at reachable pos 0.40. -->
     <body name="door_frame" pos="0.40 0 0">
-      <geom type="box" material="frame_mat" pos="0 0.46 0.5" size="0.03 0.03 0.5"  />
-      <geom type="box" material="frame_mat" pos="0 -0.42 0.5" size="0.03 0.03 0.5"  />
-      <geom type="box" material="frame_mat" pos="0 0 1.0" size="0.03 0.45 0.03"  />
+      <!-- hinge-side frame post (left, near door axis y=+0.39) - pushed out to avoid panel clash -->
+      <geom name="frame_L" type="cylinder" material="frame_mat" pos="0 0.46 0.5" size="0.03 0.5" group="1"/>
+      <!-- latch-side frame post (right) -->
+      <geom name="frame_R" type="cylinder" material="frame_mat" pos="0 -0.45 0.5" size="0.03 0.5" group="1"/>
+      <!-- top lintel -->
+      <geom name="frame_T" type="box" material="frame_mat" pos="0 0 1.0" size="0.03 0.48 0.03" group="1"/>
       <body name="door" pos="0 0.39 0.5">
-        <joint name="hinge" type="hinge" axis="0 0 1" pos="0 0 0" range="-1.8 0" damping="60.0" frictionloss="20.0" />
-        <inertial pos="0 -0.18 0" mass="2" diaginertia="0.2 0.02 0.2" />
-        <geom type="box" material="door_mat" pos="0 -0.18 0" size="0.02 0.18 0.45" />
-        <body name="handle" pos="0.03 -0.30 0">
-          <joint name="latch_joint" type="hinge" axis="1 0 0" pos="0 0 0" range="-0.9 0" stiffness="1" springref="0" damping="0.2" />
-          <inertial pos="0 -0.05 0" mass="0.2" diaginertia="0.001 0.001 0.001" />
-          <geom type="cylinder" material="handle_mat" pos="0 0 0" quat="0.707 0 0.707 0" size="0.012 0.03" />
-          <geom type="capsule" material="handle_mat" fromto="0.03 0 0  0.03 -0.12 0" size="0.012" />
-          <site name="handle_grip" pos="0.03 -0.10 0" size="0.02" rgba="1 0 0 0.5" />
+        <joint name="hinge" type="hinge" axis="0 0 1" pos="0 0 0" range="-1.8 0" damping="15" frictionloss="15" limited="true"/>
+        <inertial pos="0 -0.18 0" mass="2.43455" diaginertia="0.0913751 0.0521615 0.043714"/>
+        <!-- thick solid panel (robosuite uses 0.02 half-thickness), group=1 -->
+        <geom name="panel" type="box" material="door_mat" pos="0 -0.18 0" size="0.02 0.18 0.45" friction="1 1 1" group="1"/>
+        <!-- ===== latch lever handle (robosuite style: base cylinder + protruding lever bar) ===== -->
+        <body name="handle" pos="0.0 -0.30 0">
+          <joint name="latch_joint" type="hinge" axis="1 0 0" pos="0 0 0" range="-0.9 0" stiffness="1" springref="0" damping="0.2" frictionloss="0.5"/>
+          <inertial pos="0.06 -0.05 0" mass="0.1" diaginertia="0.001 0.001 0.001"/>
+          <!-- handle base: cylinder mounted on door face, pointing out (+x) -->
+          <geom name="handle_base" type="cylinder" material="handle_mat" fromto="0 0 0  0.06 0 0" size="0.012" group="1"/>
+          <!-- lever bar: protrudes outward then runs along -y so gripper can hook it -->
+          <geom name="handle_lever" type="capsule" material="handle_mat" fromto="0.06 0 0  0.06 -0.12 0" size="0.012" group="1"/>
+          <site name="handle_grip" pos="0.06 -0.08 0" size="0.02" rgba="1 0 0 0.5"/>
         </body>
       </body>
     </body>
