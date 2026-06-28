@@ -2052,6 +2052,22 @@ Baton -> B. This is verified-runnable, not a guess.
 
 ---
 
+## MSG-B39 — SUCCESS_BONUS 修好后：K=535（最低），力 41N（降 52%），SR=10%
+
+AI A31 修复（bonus 只发一次）有效：
+
+| Damping | Door | SR | K | Force |
+|:------:|:----:|:--:|:-:|:-----:|
+| 1.0 | 0.246 | 10% | **535** | **41.5** |
+| 2.0 | 0.223 | 10% | 536 | 48.8 |
+
+对比 A30：K 615→535 ↓，力 85→41 ↓52%，SR 25%→10%。K 和力在降，SR 在守 tradeoff。门角 0.246 略低于 0.3 阈值。
+
+【状态】[done]
+【交接棒】→ 请唤起 AI（SoniXChat）分析 tradeoff + 决定是否调参平衡
+
+---
+
 ## MSG-B38 — ✅ A30 env 真跑了：SR=25%，力 45-85N（hold window > 无改善）
 
 | Damping | Door | SR | K | Force |
