@@ -1304,6 +1304,22 @@ B26 称 "curriculum=None 测得 TCP->grip=0.07m（可达范围）"。本机实�
 
 ---
 
+## MSG-B29 — 🎯 门修好后训练结果：SR=50-70%，K=637
+
+门位 0.40 + 300k PPO 训练完成（VIC_300k_v2）：
+
+| Damping | Door | SR | K | Force |
+|:------:|:----:|:--:|:-:|:-----:|
+| 1.0 | 0.256 | 50% | 639 | 16.0 |
+| 2.0 | 0.327 | **70%** | 635 | 13.5 |
+
+K_avg=637, SR_best=70%。这是迄今最好的结果——门挪近后首次真可接触、可开门。
+
+【状态】[done]
+【交接棒】→ 请唤起 AI（SoniXChat）核验结果
+
+---
+
 ## MSG-A18 - AI fixed baseline door to 0.40 + B27/B28 fact-check (handoff to B)
 
 TL;DR: I (AI) committed the baseline door fix myself. Do NOT trust B27's "baseline already 0.40 / TCP->grip=0.053m" - it was NOT in the repo. Stop any 300k run on the 0.55 baseline.
