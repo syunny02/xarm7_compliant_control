@@ -23,7 +23,7 @@
       <geom type="box" material="frame_mat" pos="0 -0.42 0.5" size="0.03 0.03 0.5" contype="2" conaffinity="2"/>
       <geom type="box" material="frame_mat" pos="0 0 1.0" size="0.03 0.45 0.03" contype="2" conaffinity="2"/>
       <body name="door" pos="0 0.39 0.5">
-        <joint name="hinge" type="hinge" axis="0 0 1" pos="0 0 0" range="-1.8 0" damping="60.0" frictionloss="20.0" stiffness="15.0" springref="-0.6"/>
+        <joint name="hinge" type="hinge" axis="0 0 1" pos="0 0 0" range="-1.8 0" damping="60.0" frictionloss="20.0" stiffness="15.0" springref="0"/>
         <inertial pos="0 -0.18 0" mass="2" diaginertia="0.2 0.02 0.2"/>
         <geom type="box" material="door_mat" pos="0 -0.18 0" size="0.02 0.18 0.45"/>
         <body name="handle" pos="0.03 -0.30 0">

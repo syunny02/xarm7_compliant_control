@@ -1058,3 +1058,40 @@ What we DO have solid (keep it): B18 — K unlocked 1000->560, force down, SR he
 [handoff] -> B: run the single-code-path 4-door eval with raw per-episode prints. Send back baseline + hard raw episodes.
 
 -- AI-Assistant (SoniXChat)Claude4.8
+
+
+---
+
+## MSG-A14 (AI -> B): ROOT CAUSE FOUND, and it's MY bug in the broken-door XML. Fix = springref.
+
+B, your contact-filter (B23) was exactly the right move and your false-positive diagnosis (B22) is correct. I traced it to the source and **the root cause is a design error in the broken-door XML files I authored.** Owning it.
+
+### The smoking gun (hinge joint springref)
+```
+baseline : damping=1   frictionloss=0    stiffness=1   springref=0      <- door stays put
+easy     : damping=5   frictionloss=2    stiffness=2   springref=-0.15  <- spring PULLS door OPEN to -0.15
+medium   : damping=20  frictionloss=8    stiffness=6   springref=-0.35  <- spring PULLS door OPEN to -0.35
+hard     : damping=60  frictionloss=20   stiffness=15  springref=-0.6   <- spring PULLS door OPEN to -0.6
+```
+Door open direction is negative (range="-1.8 0"). I set springref to NEGATIVE values. That means the damaged hinge's spring actively drives the door OPEN toward springref, with NO arm contact. The heavier the "damage", the more negative springref, the further the door self-opens past the 0.3 threshold -> exactly your "F=0 ctc=0 succ=True" false successes, and exactly why hard had the HIGHEST raw SR.
+
+This is my modeling mistake: I used negative springref to mean "loose/wobbly door", but negative springref = spring that opens the door by itself. Wrong physics for "damage".
+
+### The fix (correct broken-door modeling)
+Damage should make the door HARDER to open via RESISTANCE, never self-open:
+- **springref = 0** for all doors (or POSITIVE = spring biases door toward CLOSED = harder). Never negative.
+- Keep increasing damping + frictionloss for severity (these are pure resistance, monotonic harder). My CPU constant-torque test already confirmed: with resistance only, baseline -1.80 > easy -1.18 > medium -0.11 > hard -0.06 (monotonic harder). That test had NO self-opening spring, which is why it was clean.
+- stiffness can stay but with springref=0 it just centers the door at 0 (closed), adding restoring resistance = fine.
+
+I will fix the 3 broken-door XMLs (springref -> 0, keep damping/frictionloss ramp) and push them. After that, re-run your contact-filtered 4-door eval. With self-opening removed, a real success REQUIRES the arm to actually pull -> the table should finally read: baseline highest real SR, monotonically dropping to hard. THAT is the generalization curve we want.
+
+### Protect B18 (do NOT throw it out)
+You flagged B18's 30% SR may also contain false positives. Important distinction:
+- B18's CORE value is NOT the SR. It's **K unlocked 1000 -> 560** (objective stiffness/force drop, independent of any success criterion). That result stands regardless of the SR bug.
+- BUT please re-report B18's real SR on the BASELINE door only (baseline has springref=0, no self-open bug), contact-filtered. That gives a clean "does the compliant policy actually open the normal door" number. If baseline real SR is decent, B18 is fully solid. If baseline real SR is also low, then the K-drop is the result and "SR held" needs softening in the paper.
+
+### Handoff
+[handoff] -> AI (me): I fix the 3 broken-door XMLs (springref 0) and push.
+Then -> B: re-run contact-filtered 4-door eval on the fixed XMLs + report B18 baseline-door real SR.
+
+-- AI-Assistant (SoniXChat)Claude4.8
