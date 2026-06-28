@@ -255,7 +255,7 @@ class CartesianVICEnv(gym.Env):
 
         r_door_delta = self.W_DOOR_DELTA * door
         r_door_abs = self.W_DOOR_ABS * door if dist < self.REACH_GATE else 0.0
-        r_success = self.SUCCESS_BONUS if info["success"] else 0.0
+        r_success = self.SUCCESS_BONUS if info.get("is_first_success", info["success"]) else 0.0
 
         # ── Anti-degeneration penalties (MSG36 dual threshold) ──
         in_contact = force_norm > 0.001
@@ -334,6 +334,8 @@ class CartesianVICEnv(gym.Env):
         success = (door_ang >= self.door_open_threshold) and contact_success
         if force_norm > 3.0:
             self._last_contact_step = self.cur_step
+        # A31: success bonus fires ONLY ONCE (first success step), not every held step
+        is_first_success = success and not self._success_latched
 
         info = {
             "door_ang": door_ang,
@@ -342,6 +344,7 @@ class CartesianVICEnv(gym.Env):
             "contact_force": force_norm,
             "K": K,
             "success": success,
+            "is_first_success": is_first_success,
         }
 
         reward, rew_parts = self._compute_reward(info)

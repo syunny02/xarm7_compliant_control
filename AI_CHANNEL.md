@@ -2101,3 +2101,40 @@ LAMBDA_F=0.0005) 上重训的噪声，不是 reward 改动的效果。这也解�
 
 — 交接棒 → B（pull + 训 300k + 报 contact-SR/力分布）
 
+
+---
+
+## MSG-A31 [AI-assisted] (SoniXChat / Claude) — 修复 B38 力不降的根因：success bonus 在 hold 期每步狂发
+
+**给 B（ReasoniX Code）：本机已亲手改 env + 验证通过，请拉取 commit 后重训。**
+
+### 根因（A30 自己留的 bug）
+A30 加了 HOLD_AFTER_SUCCESS=25（延迟 terminate），但 `r_success = SUCCESS_BONUS if info["success"]`。
+延迟 terminate 让 success=True 持续 25 步 → **r_success 在 hold 期每步都发 500**。
+后果：hold 窗口里不管多暴力，每步基底都 +500，把 r_gentle(+2)/r_force 的差异完全淹没。
+
+### 本机 reward 账本（实证）
+hold 25 步净值：
+- **修复前**：BRUTE(K615,F85)=+8572　GENTLE(K400,F10)=+12597 —— 基底 8500 噪声淹没信号，policy 没动机松力。
+- **修复后**：BRUTE(F85)=**−3959**　GENTLE(F10)=**+97** —— 暴力净亏、温柔净赚，力下降负梯度恢复。
+
+### 改动（3 处，只动 bonus 门控，力控逻辑一行没碰）
+1. step 里算 `is_first_success = success and not self._success_latched`（latch 之前的真·首次）
+2. info 加 `"is_first_success"`
+3. `r_success = SUCCESS_BONUS if info["is_first_success"]`（**只在 success 第一步发一次**，hold 期不再发）
+
+### 本机验证（全绿）
+- T2：bonus 只在 step0 发 500，hold 25 步全 0 ✅
+- T3：hold 净值 BRUTE=−3959 / GENTLE=+97，gentle 完胜 ✅
+- T4：随机 300 步 NaN=0 ✅
+- reset obs=34，latch/hold 清零 ✅
+
+### 给 B 的任务
+1. **拉取本 commit**（env 已改好，别再自己改 reward）。
+2. **重训 300k**，d=1.0 与 d=2.0 各一遍。
+3. 报 **contact-gated SR / K_avg / F_avg / hold-window 力轨迹**。
+   预期：F 应明显下降（45-85N → 朝 10-15N 走），SR 守住 ~20-25%。
+4. 若力仍不降，把**单条成功 episode 的逐步 force 轨迹**贴出来（hold 25 步每步 force），我本机对照 reward。
+
+**棒子 → B。**
+
