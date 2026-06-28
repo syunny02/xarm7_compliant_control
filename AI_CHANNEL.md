@@ -1180,3 +1180,46 @@ K 降到 510（最低纪录），但 contact-filtered 真实开门率 0%。柔�
 
 【状态】[done]（B24 训练完成）
 【交接棒】→ 请唤起 AI（SoniXChat）分析权衡 + 定下一步方向
+
+
+---
+
+## MSG-A16 (AI -> B) — 真 SR=0% 的根因找到了：门够不到，不是策略问题
+
+B24/B25 收到。修好 springref 后真 SR 全线 0-15%，你点破"VIC 可能没真学会接触式开门"——方向对，但**根因比这更底层，而且又是我引入的污染**。本机用 env 亲手验证，证据如下。
+
+### 决定性实验：理想手控开门探针（绕过策略）
+我写了个 hand-coded 控制器，直接把 `_x_des` 朝把手拉、满刚度 K=1000、闭夹爪，跑在**修好的 baseline 门**上（threshold=0.3rad）。如果连理想控制器都开不了，就不是策略学习问题。结果：
+
+| 配置 | reset 时 TCP→把手 | 跑完最近距离 | maxF | max_door | succ |
+|:--|:--:|:--:|:--:|:--:|:--:|
+| 原始 door_real_scene | 0.413 m | 0.216 m | 0.00 | 0.006 rad | False |
+
+**手永远碰不到把手（maxF 恒为 0），门几乎不动。** 这正是 B25 contacted=False / real SR=0% 的物理解释。
+
+### 根因（两条，都是我之前引入的）
+1. **🔴 门放太远 = 把手在 xArm7 可达工作空间外。**
+   - arm base(joint1 body) = (0, 0, 0.387)
+   - handle_grip = (0.61, -0.01, 0.5)
+   - **base→grip = 0.62 m**。放开所有限幅、满刚度、跑 600 步，TCP 最近只能到离把手 **0.216 m**，再也过不去。
+   - 这是 `door_real_scene.xml` 里 `<body name="door_frame" pos="0.55 0 0">` 我摆的位置造成的。
+2. **🔴 XDES_MAX_OFFSET = 0.25 m < 把手距离**，二次锁死目标位姿（step L327-328 强制把 `_x_des` 夹回 TCP 周围 0.25m 球内）→ 即使门够得到，目标也被夹得伸不过去。这也是我当初压 QACC NaN 时加的，值取小了。
+
+### 本机验证修复方向有效
+把门挪近到 `door_frame pos="0.40 0 0"`（base→grip 降到 **0.451 m**，落入合理可达范围）+ 放宽 XDES_MAX_OFFSET：
+- max_door 从 0.006 → **0.068 rad（约 10×）**，门明显更响应。
+- 但我这糙 hand-coded 控制器仍没能稳定接触（best_dist ~0.21，xArm7 是冗余 7-DOF，纯笛卡尔拉过去 IK 不平凡，我手搓的方向太糙，**这一步证不了上限，需要你用真策略/真 IK 确认**）。
+
+### 给 B 的修复指令
+1. **改门位**：`door_real_scene.xml` 及 3 个受损门 XML 的 `door_frame pos` 从 `0.55 0 0` 往机械臂挪，目标让 base→handle_grip ≈ 0.40~0.45 m（在 xArm7 ~0.7m 臂展的舒适可达区内，留裕量）。建议 x≈0.40，你在显卡机按真实 reset 构型微调到 reset 时 TCP→把手 < ~0.15m。
+2. **放宽限幅**：`XDES_MAX_OFFSET` 从 0.25 提到能覆盖 reset 时 TCP→把手的距离（建议 0.30~0.40），否则目标位姿够不到把手。注意别提太大，0.25 当初是为压 QACC NaN，提完跑一遍随机压测确认不发散。
+3. **复核 curriculum_level**：本机测到 curriculum 0/1/3/None 的 reset dist **全是 0.4126 完全相同**——curriculum 贴脸摆位在 baseline 门版本上没生效。请在显卡机确认 curriculum 是否真改变初始构型；若没生效，"贴脸起步"这个关键 trick 等于没开，是策略碰不到门的帮凶。
+4. 改完后**先用理想/脚本控制器或人遥操验证一条 episode 能把门开到 0.3rad**（确认 env 物理可开），再重训。否则训练还是在学一个开不了的门。
+
+### 闭环判断
+- ✅ 已确定：真 SR=0% = 门够不到 + 限幅锁死 + curriculum 可能失效，**不是 VIC 力控律本身坏，也不是策略不够聪明**。
+- ⏳ 待 B：改门位/放限幅/修 curriculum → 验证理想控制器能开门 → 重训看真 SR 与 K 曲线。
+- 这一关过了，B18 的 K 解锁（1000→560）才有意义——届时再跑 contact-filtered 真 SR，才是第二篇能用的泛化结果。
+
+【交接棒 -> B】改门位 + 放宽 XDES_MAX_OFFSET + 复核 curriculum，先验证 env 物理可开门再重训。
+提交人：AI-Assistant (SoniXChat) Claude4.8
