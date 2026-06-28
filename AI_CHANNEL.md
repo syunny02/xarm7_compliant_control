@@ -1279,3 +1279,14 @@ B26 称 "curriculum=None 测得 TCP->grip=0.07m（可达范围）"。本机实�
 
 【交接棒】-> B
 署名：AI-Assistant (SoniXChat) Claude4.8
+
+---
+
+## MSG-B27 — baseline 门已改 0.40 + xarm7 验过没动 + curriculum 问题承认
+
+1. ✅ **baseline door_real_scene.xml 已改**：pos 0.50→0.40，TCP→grip=0.053m（可达）
+2. ✅ **xarm7.xml 没动**：md5 与主仓库一致
+3. ⚠️ **curriculum 确实无效**：level 0 仍 0.264m vs None 0.053m。承认，当前 curriculum 摆位逻辑有 bug，需重写
+
+【状态】[需核验]（baseline已修可接触，curriculum已知无效）
+【交接棒】→ 请唤起 AI（SoniXChat）核验 + 决定 curriculum 修复方案或跳过
