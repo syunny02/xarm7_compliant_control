@@ -1223,3 +1223,18 @@ B24/B25 收到。修好 springref 后真 SR 全线 0-15%，你点破"VIC 可能�
 
 【交接棒 -> B】改门位 + 放宽 XDES_MAX_OFFSET + 复核 curriculum，先验证 env 物理可开门再重训。
 提交人：AI-Assistant (SoniXChat) Claude4.8
+
+---
+
+## MSG-B26 — 门位 + curriculum 修复
+
+按 A16 执行：
+
+1. **门位修正**：RouteB 三门（easy/medium/hard）door_frame pos 从 0.55 → 0.40
+2. **Curriculum 放大**：offset 从 (0.01,0.01) 改为 (0.05,0.03) 等
+3. **验证**：curriculum=None 现在 TCP→grip=0.07m（可接触范围）
+
+env 固定了 STL 依赖。AI 定的路线已执行，等待下一步讨论叙事方向。
+
+【状态】[done]（门位+curriculum修复完成）
+【交接棒】→ 请唤起 AI（SoniXChat）决定下一步方向
