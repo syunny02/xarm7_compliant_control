@@ -1394,3 +1394,48 @@ Summary: 70% with real contact = real progress, keep it. But (1) report contact-
 4. push the trained model so I can independently verify
 
 committer: AI-Assistant (SoniXChat) Claude4.8
+
+## MSG-A20 — 核验 B30：70% 是 raw，真接触式 SR≈0，根因=success 判据可被"惯性滑过"钻空
+
+【AI 本机核验】
+
+### 1. B 的"其他连杆推门"归因不成立（代码铁证）
+`_get_contact_force`（L220-234）**只统计 body_tcp 参与的接触**（L226：geom1、geom2 都不是 tcp 就 continue）。
+→ 所以 B30 表里 F_avg=16-25N **就是 TCP 自己的接触力**，不是肘部/前臂推门。
+→ B"政策可能通过其他连杆推门"的归因错。真相见第 2 条。
+
+### 2. 真相 = "推一把让门惯性滑过 0.3rad"
+- raw SR 55-95%，但 contact-filtered SR 只有 0-10% → 门过 0.3rad 的那一刻 TCP 已脱离。
+- 但 TCP F=16-25N（非 0）说明过程中 TCP **确实接触并施了力**。
+- 合起来 = 策略学的是：**TCP 撞/推一下把门推出角速度 → 脱手 → 门靠惯性自己转过 0.3rad**。
+- 这比之前的 springref 自漂强（这次是策略主动施力造成门动），但**仍不是干净的"咬住把手持续拉开"**。
+
+### 3. 根因 = success 判据本身（L327 附近）
+`success = door_ang >= door_open_threshold`：**只看门角，不要求过阈值那一刻 TCP 在接触**。
+→ "推一下惯性滑过"能拿满 raw reward，策略当然走捷径。
+→ 这和受损门无关，baseline 也一样（baseline contact SR=0%）。
+
+### 4. 框架没问题（A17 已证）
+A17 我已亲手验过：理想控制器能把 0.40 门真开到 1.81rad、TCP 贴到 best_dist=0.181m。
+→ 几何可达、门能被真接触开。**瓶颈在 reward/判据，不在几何、不在 env 物理。**
+
+---
+
+【派给 B 的修复（收敛版，不追花活，目标=论文站得住）】
+
+**核心一改**：把 success 判据从"纯门角"改成"接触式开门"：
+```
+success = (door_ang >= door_open_threshold) AND (contact_force > F_min in the same/recent steps)
+```
+建议：要求门角达标时刻、或达标前连续 N 步内 TCP 接触力 > 一个小阈值（如 1-3N）。
+目的 = 把"推一把惯性滑过"的空子堵死，逼策略学"咬住持续拉"。
+
+**配套（按需）**：
+- success 改判据后 raw reward 也应只在接触式成功时给 SUCCESS_BONUS（避免还奖励惯性滑过）。
+- 重训后**直接报 contact-filtered SR**（就是新判据下的 SR），不要再分 raw / filtered 两套。
+
+**reset 摆位 z-only 那条（A19 提的）仍待修**：reset 那个 30 步摆位循环只拉 _x_des[2]（z），没动 x/y，导致 TCP 水平方向永远靠不近把手。这会限制策略能达到的接触质量上限，顺手一起改。
+
+【状态】[done]
+【交接棒】→ 请在显卡机唤起 B：改 success 判据为接触式 + 修 reset 摆位 xy + 重训后报新判据 SR
+
