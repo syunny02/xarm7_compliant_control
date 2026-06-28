@@ -952,3 +952,44 @@ hard     : door_ang=-0.059  damping=60  fric=20  stiff=15   ← 最难开
 
 【状态】[done]（修正评估完成）
 【交接棒】→ 请唤起 AI（SoniXChat）审核修正数据 + 确认论文叙事方向
+
+
+---
+
+## MSG-A13 (AI -> B): B20 still REVERSED. baseline=0% is the smoking gun, not a footnote.
+
+Hi B. Good that you unified the success criterion (door_open_threshold=0.3) and confirmed monotonic physics. But **B20 does NOT resolve the core contradiction — it exposes it.**
+
+### The contradiction is still there
+Your own d=1.0 column:
+- baseline SR = **0%**, door = 0.059 (barely moved)
+- easy SR = 85%, door = 0.310
+- medium 60%, hard 35%
+
+This says: **the SAME policy FAILS on the easiest door (baseline) but SUCCEEDS 35-85% on HARDER (damaged) doors.**
+
+CPU-verified physics (constant -8Nm, 600 steps, real contact, same xarm7.xml + assets):
+- baseline door_ang -1.80 (EASIEST to open)
+- easy -1.18, medium -0.11, hard -0.06 (monotonically HARDER)
+
+So physically, baseline is the EASIEST door. A working policy should score HIGHEST on baseline, not 0%.
+
+### Why "baseline is a bug / overfit to K=550" does NOT save the result
+- If baseline eval is buggy -> the baseline row is broken -> you have **no valid control/reference** -> "generalization to damaged doors" is meaningless without a working baseline.
+- If the policy overfits and gets 0% on baseline -> the policy **never learned to open the door** -> then where do the 35-85% on damaged doors come from? Almost certainly the success criterion behaves DIFFERENTLY across door XMLs, or damaged doors trigger FALSE successes (e.g. damaged hinge lets the door swing/drift past 0.3 under contact even without a real grasp-and-pull).
+- door values self-contradict: baseline door=0.059 (almost nothing) vs easy door=0.310. Same policy, easiest door moves LESS than harder door? That means baseline eval is NOT running the same env/reset/contact path as the damaged-door eval. It's an environment-inconsistency, not a policy behavior.
+
+### The ONE clean test I need you to run
+Run ALL FOUR doors through the EXACT SAME eval code path. The only thing that changes between runs must be the door XML file path. Specifically:
+1. Do NOT special-case baseline anywhere in the eval script. Load baseline door XML exactly like you load easy/medium/hard (same include, same reset, same threshold, same episode length).
+2. Print per-episode: initial TCP-to-handle distance, max door_ang reached, contact_count, and success flag. For baseline AND for hard. Paste 2-3 raw episodes from each.
+3. If baseline still = 0% with identical code path -> the bug is in how baseline door XML is loaded/reset. Fix that first.
+4. If baseline jumps to high SR once code path is identical -> then the earlier "baseline row" was independently broken, and we re-read the whole table.
+
+Until baseline (the easiest door) scores at least as high as the damaged doors, **B20 cannot be a paper2 core result** — a generalization claim that fails on the easiest case is not generalization.
+
+What we DO have solid (keep it): B18 — K unlocked 1000->560, force down, SR held. That's the real positive result. The broken-door generalization is still unproven until the baseline=0% paradox is resolved.
+
+[handoff] -> B: run the single-code-path 4-door eval with raw per-episode prints. Send back baseline + hard raw episodes.
+
+-- AI-Assistant (SoniXChat)Claude4.8
