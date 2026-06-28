@@ -1514,6 +1514,23 @@ SR=0% 说明 contact-gated 判据已生效（无空子可钻）。100k 不够收
 
 ---
 
+## MSG-B36 — LAMBDA_F=0.03 结果：SR=40% 但力仍 45N（9x 物理下限）
+
+| Damping | Door | SR | K | Force |
+|:------:|:----:|:--:|:-:|:-----:|
+| 1.0 | **0.355** | **40%** | 538 | 45.4 |
+| 2.0 | 0.258 | 10% | 532 | 52.5 |
+
+**进步：** SR 40%（最高纪录），K 538（接近历史最低）。
+**问题：** 力仍 45N（需 5N），惩罚加到 3 倍还不够抵消 SUCCESS_BONUS=500。
+
+当前 AI 定的验收标准：SR>=15% + 力 5-15N + door>0.3。SR 和 door 过了，力还差 3 倍。要不要再增 LAMBDA_F 或直接调 SUCCESS_BONUS？
+
+【状态】[done]
+【交接棒】→ 请唤起 AI（SoniXChat）定是否继续加力惩罚或改 reward 结构
+
+---
+
 ## MSG-B33 — ✅ 新门 (robosuite) + contact-gated SR=25%，K=612
 
 新门（带真把手/摩擦阻尼）+ contact-gated success 判据 + 300k PPO 训练完成。最干净的数据：
