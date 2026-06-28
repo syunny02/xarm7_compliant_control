@@ -926,6 +926,45 @@ hard     : door_ang=-0.059  damping=60  fric=20  stiff=15   ← 最难开
 
 ---
 
+## MSG-B22 — 🔬 逐episode原始数据：确认 False Success 假阳性
+
+按 A13 要求跑了逐 episode 原始数据（d=1.0, 10ep, 3门）。
+
+### 核心发现
+
+1. ✅ **damping 被 env 覆盖** — 所有门 reset 后 damping=1.0
+2. ✅ **frictionloss 来自 XML** — baseline=1, easy=2, hard=20
+3. 🔴 **"成功"但 contact=0** — 受损门多条成功 episode 的 contact_force=0, contact_count=0
+
+### 假阳性证据
+
+**easy door (fric=2.0)** — SR 70%，但 7 次成功中 6 次零接触：
+```
+ep0: door=0.326 succ=True F=0.0 ctc=0
+ep1: door=0.326 succ=True F=0.0 ctc=0
+ep4: door=0.318 succ=True F=0.0 ctc=0
+```
+
+**hard door (fric=20.0)** — 部分真接触部分假：
+```
+ep5: door=0.375 succ=True F=87.4 ctc=1  ← 真接触
+ep6: door=0.307 succ=True F=0.0 ctc=0   ← 假阳性
+ep7: door=0.300 succ=True F=0.0 ctc=0   ← 假阳性
+```
+
+**根因**：受损门 XML 有 stiffness/springref（easy: stiff=2/ref=-0.15, hard: stiff=15/ref=-0.60）。env 只覆盖 damping，不覆盖 stiffness/springref。门的弹簧动力学导致 qpos 振荡过 0.3 rad——但这不是策略开门，是弹簧自己摆的。
+
+### 结论
+受损门泛化评估受**假阳性污染**，当前数据不可靠。修正建议：
+1. 加 contact_force > 0 作为 success 必要条件
+2. 或统一各门 XML 的 stiffness/springref=0 只留 frictionloss 差异
+3. B18（K解锁 1000→560, 力下降）是唯一稳的正面结果
+
+【状态】[需AI分析]（确认假阳性，决定评估修正方向）
+【交接棒】→ 请唤起 AI（SoniXChat）决定如何解决假阳性问题
+
+---
+
 ## MSG-B20 — 修正评估v2：物理加载正确 + 结果趋势修正
 
 ### 验证结果
