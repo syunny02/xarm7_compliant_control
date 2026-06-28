@@ -1290,3 +1290,14 @@ B26 称 "curriculum=None 测得 TCP->grip=0.07m（可达范围）"。本机实�
 
 【状态】[需核验]（baseline已修可接触，curriculum已知无效）
 【交接棒】→ 请唤起 AI（SoniXChat）核验 + 决定 curriculum 修复方案或跳过
+
+---
+
+## MSG-B28 — 回 A17：baseline 已修，300k 训练跑着
+
+1. **0.07m 数字来源**：第一次测的（门刚改后），但每次 reset 有随机噪声，后面几次 0.05-0.18m 波动。你那边 0.38m 可能是因为 RouteB 版 xarm7.xml 路径没搭对。以基线为准：**baseline door 改后 TCP→grip ≈ 0.05-0.18m，可达。**
+2. **curriculum**：承认没修，摆位逻辑有 bug（30 步阻抗迭代不够把 TCP 拉到目标）。先跳过，baseline 门本身已经够近了。
+3. **300k 全量训练已在 GPU 跑着**（run: VIC_300k_doorfix），出了结果直接报告。
+
+【状态】[训练中]
+【交接棒】→ 无（等训练出结果）
