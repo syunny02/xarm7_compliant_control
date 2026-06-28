@@ -1512,3 +1512,55 @@ SR=0% 说明 contact-gated 判据已生效（无空子可钻）。100k 不够收
 【状态】[done]（三关完成，等绿灯）
 【交接棒】→ 请唤起 AI（SoniXChat）核验 + 决定是否放行 300k+ 训练
 
+
+---
+## 【MSG-A22】AI → B  穿门板根因已定位+物理修复方案(本机实测验证)  [交接棒→B]
+
+用户从训练视频发现"手臂穿过门板开门、且不夹把手"。AI 本机查 door_real_scene.xml 几何 + 碰撞分组，根因定位完毕，并已实测验证修复方案。**这是物理层硬伤，比判据口径更底层，必须先修干净再上大训练（用户拍板=A路线，先修物理）。**
+
+### 一、穿模根因（本机证据）
+碰撞分组现状：
+- 门框三根 geom：`contype=2 conaffinity=2`（隔离到组2）
+- 门板/把手/机械臂：默认 `contype=1 conaffinity=1`（组1）
+- 规则 (frameCT & armCA)|(armCT & frameCA) = (2&1)|(1&2) = 0 → **门框对机械臂完全不碰撞**
+
+→ 手臂可从门框所在空间穿过去够把手，视觉=穿门板。
+
+把手是**单边杠杆**：capsule `fromto="0.03 0 0 → 0.03 -0.12 0"`，grip site `(0.03,-0.10,0)`，只在门板 -y 侧伸出。手臂从 +y 侧接近就够不到把手实体，只能蹭门板 → "不夹"。
+
+### 二、为何不能简单恢复门框碰撞（这是个两难，第一篇当初隔离的原因）
+AI 实测（恒力 -8Nm 开门 2000 步）：
+```
+门框组2(现状)        : max_door = -1.84 rad  门转得动
+门框直接改回组1       : max_door = -0.016 rad 门被门框卡死！（门板门框几何穿插）
+```
+→ 直接恢复门框碰撞会卡死门，比穿模更糟。
+
+### 三、✅ 验证通过的干净修复（B 直接抄）
+用 MuJoCo `<contact><exclude>` 精确排除"门板↔门框"这一对，其余全恢复组1：
+1. 门框三根 geom 去掉 `contype="2" conaffinity="2"`（回默认1/1）
+2. 给门 body 和门框 body 命名（door / door_frame 已有名）
+3. worldbody 后加：
+```xml
+<contact>
+  <exclude body1="door" body2="door_frame"/>
+</contact>
+```
+AI 实测结果：
+```
+门框回组1 + exclude door↔door_frame: max_door = -1.84 rad  ✅ 不卡死
+同时门框对机械臂恢复碰撞 → 手臂不能再穿门框  ✅ 防穿模
+```
+这是官方机制，不是 hack。三个受损门 XML(easy/medium/hard) 同样要加这段 exclude。
+
+### 四、success 判据补"真夹持"（堵"不夹"）
+当前 contact-gated 只看接触力，不要求 gripper 闭合。补：success 需 **gripper actuator 处于闭合(咬住把手)状态** 才算，否则空手蹭门也算成功。具体阈值你定，原则=手指真夹在把手上。
+
+### 五、派给 B（按顺序）
+1. 4 个门 XML 全部：门框回组1 + 加 `<exclude door↔door_frame>`，本机跑恒力验证 max_door 仍能到 ~-1.8（不卡死）。
+2. success 加 gripper 夹持条件。
+3. 改完先小规模(50-100k)验证：看 episode 里手臂是否还穿门框、是否真咬把手。**确认视频里"像正常开门"再上几百万步。**
+4. 上一轮 A21 遗留的 eval 口径"宽口"问题一并处理（contact 判定窗口别太松）。
+
+—— AI-Assistant (SoniXChat) Claude4.8
+
