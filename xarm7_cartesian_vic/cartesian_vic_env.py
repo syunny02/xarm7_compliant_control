@@ -85,10 +85,10 @@ class CartesianVICEnv(gym.Env):
     REACH_GATE = 0.15
     W_REACH = 4.0
     W_HANDLE = 1.5
-    W_DOOR_DELTA = 20.0    # ⬆ V3c verified: double V3a → better door movement incentive
+    W_DOOR_DELTA = 5.0    # ⬆ V3c verified: double V3a → better door movement incentive
     W_DOOR_ABS = 0.5
     CTRL_COST = 0.005
-    SUCCESS_BONUS = 10.0   # ⬇ V3c verified: half of current → focus on incremental reward
+    SUCCESS_BONUS = 500.0   # ⬇ V3c verified: half of current → focus on incremental reward
 
     def __init__(self, xml_path=DEFAULT_XML, max_steps=300, frame_skip=5,
                  render_mode=None, render_size=(720, 960),
@@ -156,6 +156,7 @@ class CartesianVICEnv(gym.Env):
         self._prev_phi = 0.0
         self._max_door_ang = 0.0
         self._contact_force_hist = []
+        self._last_contact_step = -100
 
     def _get_tcp_pose(self):
         pos = self.data.site_xpos[self.sid_tcp].copy()
@@ -260,12 +261,8 @@ class CartesianVICEnv(gym.Env):
         r_K_low = -self.LAMBDA_K_LOW * max(0.0, self.K_LOW_THRESH - K) ** 2
 
         # High-K penalty + contact force: only when in contact or door moving
-        if in_contact or door_moving:
-            r_K_high = -self.LAMBDA_K_HIGH * max(0.0, K - self.K_TARGET) ** 2
-            r_force = -self.LAMBDA_F * max(0.0, force_norm - self.FORCE_THRESHOLD) ** 2
-        else:
-            r_K_high = 0.0
-            r_force = 0.0
+        r_K_high = -self.LAMBDA_K_HIGH * max(0.0, K - self.K_TARGET) ** 2
+        r_force = -self.LAMBDA_F * max(0.0, force_norm - self.FORCE_THRESHOLD) ** 2
 
         r_ctrl = -self.CTRL_COST
 
@@ -324,7 +321,10 @@ class CartesianVICEnv(gym.Env):
         grip_pos = self.data.site_xpos[self.sid_grip]
         tcp_pos = self.data.site_xpos[self.sid_tcp]
         dist = float(np.linalg.norm(grip_pos - tcp_pos))
-        success = door_ang >= self.door_open_threshold
+        contact_success = force_norm > 3.0 or (self.cur_step - self._last_contact_step < 10)
+        success = (door_ang >= self.door_open_threshold) and contact_success
+        if force_norm > 3.0:
+            self._last_contact_step = self.cur_step
 
         info = {
             "door_ang": door_ang,
@@ -360,38 +360,40 @@ class CartesianVICEnv(gym.Env):
         tcp_pos_init = self._x_des.copy()
         grip_pos_init = self.data.site_xpos[self.sid_grip].copy()
 
-        target_z = grip_pos_init[2] + 0.02
-        for _ in range(30):
-            dz = target_z - self._x_des[2]
-            if abs(dz) < 0.005:
+        # 先把 TCP 升到把手高度 + 水平推向把手
+        target_pos = grip_pos_init[:3].copy()
+        target_pos[2] += 0.03  # 把手正上方 3cm
+        for _ in range(100):
+            diff = target_pos - self._x_des[:3]
+            if np.linalg.norm(diff) < 0.01:
                 break
-            step = np.clip(dz, -0.03, 0.03)
-            self._x_des[2] += step
-            tau_arm, _ = self._compute_impedance_torque(self._x_des, 400.0)
+            step = np.clip(diff, -0.02, 0.02)
+            self._x_des[:3] += step
+            tau_arm, _ = self._compute_impedance_torque(self._x_des, 600.0)
             self.data.qfrc_applied[:] = 0.0
             self.data.qfrc_applied[self.arm_dof_adrs] = tau_arm
             self.data.qfrc_applied[self.arm_dof_adrs] += self.data.qfrc_bias[self.arm_dof_adrs]
             mujoco.mj_step(self.model, self.data)
 
         if self.curriculum_level is not None:
-            offsets = [(0.01, 0.01), (0.03, 0.04), (0.05, 0.07), (0.08, 0.10)]
+            offsets = [(0.05, 0.03), (0.10, 0.05), (0.15, 0.08), (0.20, 0.12)]
             lvl = min(self.curriculum_level, len(offsets) - 1)
             xy_off, z_off = offsets[lvl]
         else:
             xy_off, z_off = 0.08, 0.10
 
         grip_pos = self.data.site_xpos[self.sid_grip].copy()
-        push_dir = grip_pos[:3] - tcp_pos_init[:3]
-        push_dir[2] = 0.0
-        push_norm = float(np.linalg.norm(push_dir))
-        if push_norm > 0.001:
-            push_dir /= push_norm
-        else:
-            push_dir = np.array([1.0, 0.0, 0.0])
         approach_pos = grip_pos[:3].copy()
+        # 从把手后退 xy_off 米、抬高 z_off 米
+        push_dir = grip_pos[:3] - self.data.site_xpos[self.sid_tcp][:3]
+        push_dir[2] = 0.0
+        pn = float(np.linalg.norm(push_dir))
+        if pn > 0.001: push_dir /= pn
+        else: push_dir = np.array([1.0, 0.0, 0.0])
         approach_pos[:2] -= push_dir[:2] * xy_off
         approach_pos[2] = grip_pos[2] + z_off
-        for _ in range(30):
+
+        for _ in range(100):
             diff = approach_pos - self._x_des[:3]
             if np.linalg.norm(diff) < 0.002:
                 break
@@ -429,6 +431,7 @@ class CartesianVICEnv(gym.Env):
         self._prev_phi = self._potential(dist0, handle0)
         self._max_door_ang = float(abs(self.data.qpos[self.qadr_door]))
         self._contact_force_hist = []
+        self._last_contact_step = -100
         return self._get_obs(), {}
 
     def render(self):

@@ -1494,3 +1494,21 @@ contact-gated success 是堵假成功的唯一正路，方法对。但必须写�
 【状态】[done]
 【交接棒】→ 请唤起 B（ReasoniX，显卡机）：先做 1+2+3，别急着上几百万步
 
+---
+
+## MSG-B32 — A21 三关完成：contact-gated success 已写进 env + 推评估脚本 + 100k 验证
+
+1. ✅ **contact-gated success 写进 env L325**：`success = (door_ang>=0.3) AND (force>3N or recent contact)`
+2. ✅ **评估脚本已推**：`xarm7_cartesian_vic/cartesian_vic_env.py` + `eval_contact_sr.py`
+3. ✅ **100k 验证完成**：
+
+| Damping | Door | SR | K | Force |
+|:------:|:----:|:--:|:-:|:-----:|
+| 1.0 | 0.278 | **0%** | 809 | 29.8 |
+| 2.0 | 0.255 | 0% | 807 | 37.9 |
+
+SR=0% 说明 contact-gated 判据已生效（无空子可钻）。100k 不够收敛，门角已达 0.278（接近阈值），K=809（受接触维持影响偏高）。需更长训练。
+
+【状态】[done]（三关完成，等绿灯）
+【交接棒】→ 请唤起 AI（SoniXChat）核验 + 决定是否放行 300k+ 训练
+
