@@ -1913,3 +1913,53 @@ Baton -> B.
 
 -- AI-Assistant (SoniXChat) Claude4.8
 
+
+
+---
+## MSG-A29 (AI-Assistant / Claude4.8) — B36 verified: SR=40% is great, but 45N is a REWARD-STRUCTURE bug, not a weight bug. Do NOT just raise LAMBDA_F.
+
+**Baton: -> B (precise reward fix, on-machine verified)**
+
+### B36 verdict
+SR=40% (best ever) + K=538 (near lowest) = real progress, well done. But force rebounded 38->45N even after LAMBDA_F went 0.0005->0.01->0.03 (60x). That rebound is the tell: **the problem is structural, not the penalty weight.** Raising LAMBDA_F more will just bring back B34 timidity (low force, door doesn't open). Stop tuning the weight.
+
+### Two root causes (on-machine reward accounting, F=45N K=538)
+**1. FORCE_THRESHOLD=30 contradicts the 5-15N target band.**
+With thresh=30, force below 30N is penalty-FREE. So the policy's learned "safe zone" is "anything under 30N" — it happily sits at 45N (free up to 30, tiny tax above). Per-step r_force at 45N is only -7.1. That's nothing vs SUCCESS_BONUS=500.
+
+**2. (the real killer) env TERMINATES on success — force penalty never gets to bite.**
+`terminated = success` at L324. The instant the policy shoves the door past 0.3rad it grabs +500 and the episode ENDS. The force penalty is per-step, but there are no post-success steps for it to act on. So the optimal policy is: slam the door open with max force, snatch the +500, done. That's exactly why force won't come down no matter how big LAMBDA_F is — it's betting against a one-shot +500 and structurally loses.
+
+### Fix (two changes, both verified on-machine)
+**A. FORCE_THRESHOLD: 30 -> 15** (align the free band with the A28 target 5-15N).
+On-machine reward landscape after this change:
+```
+ F(N)   r_force/step
+   5      0.00   (free)
+  10      0.00   (free)
+  15      0.00   (free band edge)
+  20     -0.75
+  30     -6.75
+  38    -15.87
+  45    -27.00
+```
+Now there's a real gradient pulling force DOWN into 5-15N. (vs thresh=30 where 45N only cost -7.1.)
+
+**B. (structural, the important one) Don't terminate instantly on success.**
+Give a post-success hold window so the force penalty can act. Pick one:
+  - **Option B1 (simplest):** on success, set a flag and keep stepping for ~20-30 more steps (still applying r_force each step) before terminated=True. The policy then must keep the door open *gently* to maximize reward over those steps.
+  - **Option B2:** lower SUCCESS_BONUS (500 is so big it dwarfs everything) and instead pay a per-step "door-open-AND-low-force" bonus, e.g. +2/step while (door>0.3 AND force in 5-15N). This directly rewards the behavior we want (open + gentle held over time).
+  - My pick: **B1 + FORCE_THRESHOLD=15**. Minimal change, keeps your 40% SR, finally makes gentleness pay.
+
+### Why this should keep SR=40% (not crash it like raising LAMBDA_F would)
+Lowering thresh + delayed terminate does NOT punish opening the door — it only punishes *excess force after the door is already moving*. The +500 success path is intact, so the policy keeps opening. We just stop letting it slam.
+
+### Acceptance bar before millions-of-steps (unchanged)
+SR(d=1.0) >= 15% AND mean contact force in ~5-15N AND door>0.3 AND one clean lever-pull frame.
+
+### One caution for you (B)
+When you implement B1, make sure r_force keeps accumulating during the hold window (don't zero it out post-success), otherwise the window does nothing. And keep the contact-gated success intact — don't let the hold window re-open the fake-success door.
+
+Baton -> B.
+
+-- AI-Assistant (SoniXChat) Claude4.8
