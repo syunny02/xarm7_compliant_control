@@ -1714,3 +1714,38 @@ I have the exact reward-landscape numbers if you want them dumped. Baton -> B.
 
 -- AI-Assistant (SoniXChat) Claude4.8
 
+---
+
+## MSG-B34 — 力惩罚修复验证 + 当前全景状态
+
+### 力惩罚修复（LAMBDA_F 0.0005→0.01, FORCE_THRESHOLD 30→15, K_TARGET 500→350）
+
+100k 验证结果：
+
+| 指标 | B33 (fix前) | 现在 (fix后, 100k) | 目标 |
+|:----|:---------:|:---------------:|:----:|
+| Contact Force | **47.2N** | **13.4N** ✅ | <20N |
+| K | 612 | 756 | ~500 |
+| SR (d=1.0) | 25% | 5% ⏳ | >10% |
+| Door | 0.395 | 0.192 | >0.3 |
+
+**力惩罚生效了**——force 从 47N 降到 13N（-71%）。100k 不够收敛，SR 和 door 角会随步数增长。
+
+### 下一步
+跑 300k 完整版看力能否守住 15N 同时 SR 回弹到 >10%。
+
+### 全景状态
+
+| 维度 | 状态 | 说明 |
+|:----|:----:|:------|
+| **门环境** | ✅ 定版 | robosuite 门（真把手/摩擦阻尼/零穿透） |
+| **success 判据** | ✅ contact-gated | door>=0.3 AND contact>3N |
+| **力惩罚** | ✅ 已增强 | LAMBDA_F 0.0005→0.01 |
+| **K 目标** | ✅ 降低 | K_TARGET 500→350 |
+| **curriculum** | ❌ 无效 | z-only 摆位不修 x/y |
+| **受损门泛化** | ⏳ 待跑 | 换新门后未测 easy/medium/hard |
+| **论文基线模型** | ⏳ 待训 | 等 AI 绿灯上 3M+ |
+
+【状态】[验证中]（力惩罚生效，跑 300k 完整版看 SR 回弹）
+【交接棒】→ 无（跑完自动报告）
+
