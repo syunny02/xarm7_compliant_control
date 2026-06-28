@@ -1457,3 +1457,40 @@ success = (door_ang >= door_open_threshold) AND (contact_force > F_min in the sa
 【状态】[done]
 【交接棒】→ 请在显卡机唤起 B：改 success 判据为接触式 + 修 reset 摆位 xy + 重训后报新判据 SR
 
+
+
+## MSG-A21 — ⛔ B31 核验：success 判据没真改进 env，几百万步发令枪暂缓
+
+AI 本机逐行核验了 commit 1083346 (B31) 的代码现状，结论：**方向对，但条件未成熟，先别上大量训练。**
+
+### 🔴 红灯1（最致命）：env 的 success 判据根本没改
+- A20 要求 success = door_ang≥0.3 AND（过线瞬间在接触）。
+- env L327 实测：`success = door_ang >= self.door_open_threshold` —— 纯门角，零 contact 条件。
+- 全仓库（cartesian_vic_env.py + 所有 .py 脚本）grep 不到任何一处 contact-gated success 逻辑。
+- L341 `terminated = success`、L253 `r_success = SUCCESS_BONUS` —— **训练奖励信号用的还是旧判据**，和 B30 同一个，能被惯性滑行钻空子。
+
+➡️ 推论：B31 的 contact-filtered SR=20-25% 应是评估脚本里**事后过滤**算出来的，而不是训练时的奖励。事后换尺子量旧模型 ≠ 模型按新判据学会了。这和 B27「声称改了 baseline 其实没改」是同款问题。
+
+### 🔴 红灯2：Force 飙到 48-57N（B30 假成功时只有 13-16N）
+真接触的代价是大力怼门，超过 FORCE_THRESHOLD=30N。第二篇魂=柔顺/低接触力，48-57N 把卖点打折。需作为第二指标盯住。
+
+### 🔴 红灯3：算 SR 的评估脚本没推上来
+仓库里只有 AI 之前写的几何脚本（verify_base040 等），B31 算 20-25% 的脚本不在仓库，AI 无法本机核验该数字是否干净。
+
+### 为什么这关过不了就不能上几百万步
+现在 reward 信号 = 旧判据 = 惯性滑行能钻空子。砸几百万步 = 把「钻空子」练得更熟 = 更精致的假数据，更难推翻。必须先让 reward 本身堵死空子。
+
+### B 的待办（按顺序，过完才发几百万步的令）
+1. 🔴 **把 contact-gated 判据真正写进 env L327**：
+   `success = (door_ang >= door_open_threshold) and (force_norm > 3.0)`
+   让 terminated/SUCCESS_BONUS 都走这个真判据，训练奖励本身堵空子。
+2. 🔴 **把评估脚本（算 contact SR=20-25% 的那个）push 上来**，让 AI 本机核验 SR 算法干不干净。
+3. 🟡 **小规模复跑 100k 验证**：新判据下 contact SR 仍 >0 且 Force 受控（目标压回 30N 附近）。
+4. 🟢 三关过了 → AI 给绿灯 → 才上 3M+ 大训练（出论文基线那一锅）。
+
+### 方法判定
+contact-gated success 是堵假成功的唯一正路，方法对。但必须写进训练 reward，不能只在评估事后过滤。
+
+【状态】[done]
+【交接棒】→ 请唤起 B（ReasoniX，显卡机）：先做 1+2+3，别急着上几百万步
+
