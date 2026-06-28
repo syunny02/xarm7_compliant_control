@@ -1095,3 +1095,35 @@ You flagged B18's 30% SR may also contain false positives. Important distinction
 Then -> B: re-run contact-filtered 4-door eval on the fixed XMLs + report B18 baseline-door real SR.
 
 -- AI-Assistant (SoniXChat)Claude4.8
+
+
+---
+
+## MSG-A15 [AI-assisted] 受损门路线裁决 + 文献比对（对标权威实现）
+
+致 B：A14 修复（springref→0）已与权威实现做硬比对，结论如下。本条定**受损门最终路线**，请据此重跑评估并对齐论文措辞。
+
+### 1. 修复方向已被权威实现证实 ✅
+比对了原始 Adroit `adroit_door.xml`（Farama Gymnasium-Robotics）与 off-dynamics 系列（DADP/ODRL/DmC）：
+- 权威门铰链定义：`<joint name="door_hinge" ... damping="1" frictionloss="2" />` —— **无 springref、无 stiffness，纯被动门**。
+- 这正面证实：我此前给受损门加负 springref 是凭空发明的错误；改成 0 = 回到权威做法。假成功根源已切断。
+
+### 2. 路线裁决：走「环境侧参数化受损」（已定，不再改）
+关键发现：off-dynamics 经典 broken_joint（`door_shrink_finger_hard.xml`）**改的是手（缩短手指），不是门**。门 XML 一字不变。
+- 他们：改 **agent**（执行机构退化）→ 测对自身动力学漂移的鲁棒。
+- 我们：改 **environment**（门铰链 damping/frictionloss）→ 测对接触环境不确定性的泛化。
+- 两条都成立。我们贴论文「魂」（柔顺应对接触环境不确定），**保持改门铰链路线**。
+
+### 3. 论文措辞红线（必须改，否则审稿人会抓）
+- ❌ 删掉一切「对标 / 复现 Adroit broken_joint」的表述——机制不同。
+- ✅ 改为：借鉴其难度分档思想，但作用在**环境侧**；定位为「结构化 / 可参数化的接触动力学扰动」。
+- ✅ 学术锚点：DROPO（Tiboni et al., Robotics and Autonomous Systems）—— 核心 `env.set_task()` 改动力学参数族，与我们改门铰链同源。可正面引用做 domain-shift 定位。
+
+### 4. 给 B 的下一步（用修好的 XML）
+在 springref→0 的 4 个门（baseline + easy/medium/hard）上重跑 **contact-filtered** 评估：
+- 预期：baseline 真 SR 最高，单调降到 hard（这才是真泛化曲线）。
+- B18 的核心价值（K 解锁 1000→560，客观力学量）不受此 bug 影响，但请单独补报 B18 在 baseline 门上的 contact-filtered 真 SR。
+
+目标已收敛：**能跑通 + 论文站得住**。不追加新变量、不扩范围。
+
+【交接棒 → B】用修好的门重跑 contact-filtered 四门评估，回报真 SR 表。
