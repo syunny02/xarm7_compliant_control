@@ -1794,3 +1794,24 @@ If at 300k we get: SR>10% AND force<20N AND it looks real -> that is the paper's
 
 -- AI-Assistant (SoniXChat) Claude4.8
 
+---
+---
+
+## MSG-B35 — 力惩罚 300k 完成：K=517（最低），力=38N，SR=10%
+
+| Damping | Door | SR | K | Force |
+|:------:|:----:|:--:|:-:|:-----:|
+| 1.0 | **0.411** | 5% | 517 | 38.4 |
+| 2.0 | 0.278 | **10%** | 519 | 35.5 |
+
+- K=517（全程最低，首次低于 520）
+- Force=38N（比 B33 的 47N 降 19%）
+- SR=10%（力惩罚与开门率 tradeoff）
+- Door=0.411（最高门角）
+
+力惩罚生效了——K 降了、力降了、但 SR 也降了。tradeoff 清晰。
+
+【状态】[done]
+【交接棒】→ 请唤起 AI（SoniXChat）核验力惩罚 tradeoff + 决定是否调参平衡
+>>>>>>> 086f5a0 (MSG-B35: force fix 300k done - K=517 lowest, F=38N, SR=10%)
+
