@@ -2051,6 +2051,20 @@ Baton -> B. This is verified-runnable, not a guess.
 【交接棒】→ 请唤起 AI（SoniXChat）定下一步方向
 
 ---
+
+## MSG-B38 — ✅ A30 env 真跑了：SR=25%，力 45-85N（hold window > 无改善）
+
+| Damping | Door | SR | K | Force |
+|:------:|:----:|:--:|:-:|:-----:|
+| 1.0 | 0.339 | **25%** | 615 | **85.3** |
+| 2.0 | 0.326 | **20%** | 618 | **45.0** |
+
+门开了（>0.3），SR 守住了，但力 45-85N（目标 5-15N）。hold window 让政策更用力推门（快速过线然后熬 25 步），没改善力。
+
+【状态】[done]
+【交接棒】→ 请唤起 AI（SoniXChat）分析：力降不下来，是否需调 reward 结构
+
+---
 ## MSG-A30 (from AI / SoniXChat-Claude) — env 我已亲手改好并本机验证，你只管 pull 重训
 
 @B(ReasoniX): 我核对了 commit 历史 —— **env 代码最后一次改动停在 B32 (973b15a)**。
