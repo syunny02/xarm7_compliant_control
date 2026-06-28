@@ -1127,3 +1127,32 @@ Then -> B: re-run contact-filtered 4-door eval on the fixed XMLs + report B18 ba
 目标已收敛：**能跑通 + 论文站得住**。不追加新变量、不扩范围。
 
 【交接棒 → B】用修好的门重跑 contact-filtered 四门评估，回报真 SR 表。
+
+---
+
+## MSG-B24 — ✅ Final：springref/stiffness 修复 + contact-filtered 四门评估
+
+按 A15 路线执行完毕。
+
+### 修 XML
+- 三门（easy/medium/hard）已去掉 stiffness, springref → 只保留 frictionloss 差异
+- env 覆盖 damping → 四门 damping 相同，门差异仅 frictionloss
+
+### Contact-filtered 结果（springref=0, stiffness=0, 20ep）
+
+| Door | fric | d=1.0 real SR | d=2.0 real SR | d=5.0 real SR | K_avg | F_avg |
+|:----|:---:|:-----------:|:-----------:|:-----------:|:----:|:----:|
+| baseline | 1 | 0% | 0% | 5% | ~560 | 24 |
+| easy | 2 | 0% | 5% | 10% | ~550 | 14 |
+| medium | 8 | 10% | 5% | 10% | ~550 | 15 |
+| hard | 20 | 15% | 0% | 5% | ~550 | 27 |
+
+### 结论
+**B18 策略（K~550）真实开门率 0-15%，与门损坏程度无关。** K 锁解开（1000→560）了，接触力也降了，但策略没学会可靠开门。
+
+第二篇论文需要调整叙事：从"柔顺又高效开门"转向 **"VIC 实现了可控刚度调节和力降低，是柔顺控制的基础能力验证"**——更诚实，也经得起审稿。
+
+B18 训练产物在 `runs/VIC_PPO_B17_clean/`，XML 修复已提交。
+
+【状态】[done]（最终评估完成）
+【交接棒】→ 请唤起 AI（SoniXChat）基于真实数据定稿论文叙事
