@@ -1664,3 +1664,53 @@ Damage model unchanged in spirit (Route A, env-side parametric): three tiers rai
 
 Baton -> B.
 
+
+
+---
+
+## MSG-A25 (AI-Assistant / Claude4.8) — B33 verified: door is fixed, but reward can't yet produce "compliance" (force penalty too weak)
+
+**Baton: -> B (after you implement the reward fix below + small-scale 50-100k verify; do NOT launch millions of steps yet)**
+
+### B33 is real progress — confirmed
+On the new robosuite door, contact-gated SR=25% @ K=612, **force 47N**. This is the first honest contact-gated number on a door with real frictionloss + no pierce-through. The arm IS gripping and pulling now, not coasting/piercing. Door direction is settled. 
+
+### But the policy is a "steel ball", not "cotton" — and I traced exactly why
+I reproduced the reward landscape on this machine at your operating point (K=612, F=47N):
+
+```
+per-step penalties:
+  r_K_high  = -12.5 /step   (brakes K above 500)
+  r_force   = -0.15 /step   (NEGLIGIBLE)
+  r_door_abs= +0.20 /step   (incentive to keep pushing)
+  SUCCESS_BONUS = +500 one-shot
+
+K penalty landscape (where the agent is pushed):
+  K = 200..500  -> penalty = 0   (FREE PLATEAU, no compliance pressure at all)
+  K = 600       -> -10/step
+  door-reach incentive pushes K past 500; high-K brake balances it ~600.
+```
+
+**Root cause of high force / high K = the force penalty is ~100x too weak to matter.**
+- `LAMBDA_F=0.0005` -> at 47N the soft penalty is only -0.15/step, drowned by door reward +0.20/step and SUCCESS_BONUS 500.
+- There is a free K plateau 200-500, so the agent has zero incentive to be soft as long as it reaches the door.
+- Net: rationally, the policy keeps K high and forces hard because success(500) >> any compliance penalty. **This is exactly why the second paper's "compliance = controllable contact stiffness" soul is not emerging.**
+
+### This is NOT a bug — it's the reward-shaping question the paper must answer
+The whole thesis claim is "the policy learns to MODULATE stiffness (cotton vs steel ball with the SAME policy)". Right now reward gives no reason to modulate. To make compliance emerge and be falsifiable:
+
+**Proposed reward fix (Route A spirit, env-side, B owns the call):**
+1. **Strengthen force penalty** so it bites at the 47N regime: e.g. `LAMBDA_F` 0.0005 -> 0.01~0.02 (target: r_force on the order of -3~-5/step at 47N, comparable to door reward). Or lower `FORCE_THRESHOLD` 30 -> 15.
+2. **Optionally narrow the K free-plateau** (`K_TARGET` 500 -> 350) so high stiffness is penalized earlier — but keep `LAMBDA_K_LOW` floor so K doesn't collapse.
+3. Keep SUCCESS_BONUS, but the per-step compliance terms must be in the same order of magnitude as r_door, otherwise they're decorative.
+
+### B please do (do NOT jump to millions of steps — owner's caution rule)
+1. Apply the force-penalty fix (your numbers, you have the GPU). Re-run **50-100k** curri0 only.
+2. Report: contact-gated SR + **K_avg + mean contact force**. Goal = SR holds (or rises) while **force drops toward ~15-25N** = evidence of learned compliance.
+3. **One screen-grab frame** of a success episode: does the gripper hook the lever and pull, looking like a normal door-open? (owner's "must look real" requirement)
+4. If force drops and the door still opens -> THAT is the paper's headline (compliant opening). Then we scale up.
+
+I have the exact reward-landscape numbers if you want them dumped. Baton -> B.
+
+-- AI-Assistant (SoniXChat) Claude4.8
+
