@@ -80,8 +80,10 @@ class CartesianVICEnv(gym.Env):
     K_TARGET = 500.0       # target stiffness
     LAMBDA_K_LOW = 0.2     # low-K penalty, ALWAYS active (prevents K collapse)
     K_LOW_THRESH = 200.0   # K floor
-    LAMBDA_F = 0.0005      # contact force penalty weight (gated)
-    FORCE_THRESHOLD = 30.0 # N, soft threshold
+    LAMBDA_F = 0.03        # A29: contact force penalty weight (raised from 0.0005)
+    FORCE_THRESHOLD = 15.0 # A29: N soft threshold (lowered from 30 -> gradient at 20-45N)
+    HOLD_AFTER_SUCCESS = 25 # A29b: keep episode alive N steps after success (gentle-contact window)
+    W_GENTLE = 2.0          # A29b: per-step reward when door open AND force in 3-15N band
     REACH_GATE = 0.15
     W_REACH = 4.0
     W_HANDLE = 1.5
@@ -157,6 +159,8 @@ class CartesianVICEnv(gym.Env):
         self._max_door_ang = 0.0
         self._contact_force_hist = []
         self._last_contact_step = -100
+        self._success_latched = False   # A29b
+        self._hold_counter = 0          # A29b
 
     def _get_tcp_pose(self):
         pos = self.data.site_xpos[self.sid_tcp].copy()
@@ -266,11 +270,16 @@ class CartesianVICEnv(gym.Env):
 
         r_ctrl = -self.CTRL_COST
 
-        reward = r_shape + r_door_delta + r_door_abs + r_success + r_force + r_K_low + r_K_high + r_ctrl
+        # A29b: gentle-contact reward - door open AND force in target 3-15N band
+        door_open = info["door_ang"] >= self.door_open_threshold
+        gentle = door_open and (3.0 <= force_norm <= 15.0)
+        r_gentle = self.W_GENTLE if gentle else 0.0
+
+        reward = r_shape + r_door_delta + r_door_abs + r_success + r_force + r_K_low + r_K_high + r_ctrl + r_gentle
         return reward, {
             "r_shape": r_shape, "r_door_delta": r_door_delta,
             "r_door_abs": r_door_abs, "r_success": r_success,
-            "r_force": r_force, "r_K_low": r_K_low, "r_K_high": r_K_high, "r_ctrl": r_ctrl,
+            "r_force": r_force, "r_K_low": r_K_low, "r_K_high": r_K_high, "r_ctrl": r_ctrl, "r_gentle": r_gentle,
         }
 
     def step(self, action):
@@ -338,7 +347,12 @@ class CartesianVICEnv(gym.Env):
         reward, rew_parts = self._compute_reward(info)
         info.update({f"reward_{k}": v for k, v in rew_parts.items()})
 
-        terminated = success
+        # A29b: delayed terminate - latch success, hold HOLD_AFTER_SUCCESS steps before ending
+        if success:
+            self._success_latched = True
+        if self._success_latched:
+            self._hold_counter += 1
+        terminated = self._success_latched and (self._hold_counter >= self.HOLD_AFTER_SUCCESS)
         truncated = self.cur_step >= self.max_steps
         obs = self._get_obs()
 
@@ -432,6 +446,8 @@ class CartesianVICEnv(gym.Env):
         self._max_door_ang = float(abs(self.data.qpos[self.qadr_door]))
         self._contact_force_hist = []
         self._last_contact_step = -100
+        self._success_latched = False   # A29b
+        self._hold_counter = 0          # A29b
         return self._get_obs(), {}
 
     def render(self):
