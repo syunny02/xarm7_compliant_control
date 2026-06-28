@@ -37,12 +37,12 @@
         <!-- ===== latch lever handle (robosuite style: base cylinder + protruding lever bar) ===== -->
         <body name="handle" pos="0.0 -0.30 0">
           <joint name="latch_joint" type="hinge" axis="1 0 0" pos="0 0 0" range="-0.9 0" stiffness="1" springref="0" damping="0.2" frictionloss="0.5"/>
-          <inertial pos="0.06 -0.05 0" mass="0.1" diaginertia="0.001 0.001 0.001"/>
+          <inertial pos="-0.06 -0.05 0" mass="0.1" diaginertia="0.001 0.001 0.001"/>
           <!-- handle base: cylinder mounted on door face, pointing out (+x) -->
-          <geom name="handle_base" type="cylinder" material="handle_mat" fromto="0 0 0  0.06 0 0" size="0.012" group="1"/>
+          <geom name="handle_base" type="cylinder" material="handle_mat" fromto="0 0 0  -0.06 0 0" size="0.012" group="1"/>
           <!-- lever bar: protrudes outward then runs along -y so gripper can hook it -->
-          <geom name="handle_lever" type="capsule" material="handle_mat" fromto="0.06 0 0  0.06 -0.12 0" size="0.012" group="1"/>
-          <site name="handle_grip" pos="0.06 -0.08 0" size="0.02" rgba="1 0 0 0.5"/>
+          <geom name="handle_lever" type="capsule" material="handle_mat" fromto="-0.06 0 0  -0.06 -0.12 0" size="0.012" group="1"/>
+          <site name="handle_grip" pos="-0.06 -0.08 0" size="0.02" rgba="1 0 0 0.5"/>
         </body>
       </body>
     </body>

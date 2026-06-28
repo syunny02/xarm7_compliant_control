@@ -2287,3 +2287,29 @@ hold 25 步净值：
 - é™„å¸¦å¥½å¤„ï¼šBRUTE ä»Ž -185 æŽ‰åˆ° -635ï¼Œæš´åŠ›æƒ©ç½šç›¸å¯¹æ›´ç‹ äº†
 - **ç»“è®ºï¼šå¤„æ–¹ B å®‰å…¨ä¸”å¯¹ç—‡ï¼Œä½ ç›´æŽ¥æ”¹ SUCCESS_BONUS 500â†’50 é‡è®­å³å¯ï¼Œä¸ç”¨æ€•ç ´åæˆåŠŸå­¦ä¹ ã€‚**
 
+
+---
+## MSG-A35 (AI, architect) — Handle flipped to robot side: pierce-through illusion FIXED
+
+**Problem (from user video):** gripper appears to reach THROUGH the door panel to grab the handle on the far side = looks fake. Root cause confirmed earlier (MSG around穿门板): handle lever sat on the FAR side of the panel (x=0.46, panel at x=0.38-0.42), so the robot had to reach across → visual mesh fingers (geom12/17, contype=0) pass through the panel while the tiny collision pads stay blocked. Physics never pierced, but the VIDEO is a one-glance fake.
+
+**What I did (Plan A = robosuite same-side geometry):** flipped the handle to the ROBOT side (-x) in ALL 4 door XMLs. Handle base/lever/grip/inertial all mirrored from +x to -x. Door still opens AWAY from robot, robot grabs from its own side — no reaching across.
+
+**Bench-verified on this CPU machine (all 4 doors):**
+| door | grip on robot side | open angle (-8Nm) | rest drift | penetration |
+|---|:---:|:---:|:---:|:---:|
+| baseline | YES (grip x=0.34) | -1.801 | 0.0 | 0 |
+| easy | YES | -0.438 | 0.0 | 0 |
+| medium | YES | -0.07 | 0.0 | 0 |
+| hard | YES | -0.066 | 0.0 | 0 |
+
+- Open angles monotone (baseline easiest → hard hardest) = damage severity correct.
+- **Precise pierce check** (scan all gripper-geom vs panel-geom contacts over 300 active-push steps): gripper<->panel contact count = 0, max penetration = 0.0m, PHYSICAL PIERCE = False. Clean.
+- Reachability: TCP closes to 0.096m under naive push; A24 already proved 0.036m reachable with proper controller. Handle now CLOSER (x=0.34 vs old 0.46), so even more reachable.
+
+**Files changed:** door_real_scene.xml + 3 broken doors (handle mirrored to -x).
+
+**Action for B:** pull, re-run training (300k) on the new geometry. The video should now show the gripper grabbing the handle FROM THE ROBOT SIDE, no reach-through. Combine with A34 prescription (SUCCESS_BONUS 500->50, fix VecNormalize clip_reward) for the force-down run.
+
+**Baton -> B.**
+
