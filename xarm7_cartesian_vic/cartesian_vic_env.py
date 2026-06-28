@@ -128,6 +128,15 @@ class CartesianVICEnv(gym.Env):
         self.dof_door = self.model.jnt_dofadr[self.jid_door]
 
         self.body_tcp = self.model.site_bodyid[self.sid_tcp]
+        # A32: full gripper chain + door-side body id sets (fix force statistics blind spot)
+        def _bid(name):
+            import mujoco as _mj
+            return _mj.mj_name2id(self.model, _mj.mjtObj.mjOBJ_BODY, name)
+        _grip_names = ['xarm_gripper_base_link','left_outer_knuckle','left_finger',
+                       'left_inner_knuckle','right_outer_knuckle','right_finger','right_inner_knuckle']
+        self._gripper_bodies = set(b for b in (_bid(n) for n in _grip_names) if b >= 0)
+        _door_names = ['door','handle','door_frame']
+        self._door_bodies = set(b for b in (_bid(n) for n in _door_names) if b >= 0)
 
         self.home_ctrl = None
         if self.model.nkey > 0:
@@ -228,13 +237,20 @@ class CartesianVICEnv(gym.Env):
             c = self.data.contact[i]
             geom1 = self.model.geom_bodyid[c.geom1]
             geom2 = self.model.geom_bodyid[c.geom2]
-            if geom1 != self.body_tcp and geom2 != self.body_tcp:
+            # A32: only count gripper<->door contacts; skip self-collisions & others
+            g_in = geom1 in self._gripper_bodies or geom2 in self._gripper_bodies
+            d_in = geom1 in self._door_bodies or geom2 in self._door_bodies
+            if not (g_in and d_in):
                 continue
             force_local = np.zeros(6, dtype=np.float64)
             mujoco.mj_contactForce(self.model, self.data, i, force_local)
             single_force = float(np.linalg.norm(force_local[0:3]))
-            if c.dist < 0 and single_force > 100.0:
-                continue
+            # A33: do NOT drop deep-penetration force (that rewarded brute force).
+            # Saturate it instead so violence is penalized, not hidden.
+            CONTACT_FORCE_CAP = 200.0
+            if single_force > CONTACT_FORCE_CAP:
+                force_local[0:3] = force_local[0:3] * (CONTACT_FORCE_CAP / single_force)
+                single_force = CONTACT_FORCE_CAP
             frame_33 = self.data.contact[i].frame.reshape(3, 3)
             cf_world = frame_33.T.copy() @ force_local[:3]
             R = self.data.site_xmat[self.sid_tcp].reshape(3, 3).copy()

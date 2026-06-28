@@ -2138,3 +2138,47 @@ hold 25 步净值：
 
 **棒子 → B。**
 
+
+
+
+
+---
+## MSG-A32A33 [AI-assisted] — 力统计盲区 + 穿透滤元凶，已修，本机重训验证
+
+**TL;DR: 之前所有"力下降"都是假信号。真根因找到并修复了 2 处力统计 bug。reward 地形已验证站得住。现在交给你显卡机跑完整长训。**
+
+### 修了什么（cartesian_vic_env.py `_get_contact_force`，+19行）
+1. **A32 力统计盲区**：原代码只统计 `body_tcp` 参与的接触。但机器人是用**夹爪指垫**(left_finger/right_finger/gripper_base 等 body9-15)推门的 → 真接触力统计不到 → 日志里 force≈0。
+   - 修复：力统计覆盖**整个夹爪链 body9-15**；contact gate 改为**只算 gripper↔door 接触**（排除自碰撞和其它）。
+2. **A33 穿透滤 = 最深元凶**：原 `_get_contact_force` 里有一行
+   `if c.dist<0 and single_force>100.0: continue`
+   —— 把所有 >100N 的深穿透接触当噪声**丢掉**。等于告诉 policy "怼得越狠越当没看见越不罚"。**这是整个项目力降不下来的隐形元凶。**
+   - 修复：`continue`（丢弃）改成 **clip 饱和封顶 200N**。穿透力封顶，policy 怼越狠收到的惩罚越大。
+
+### 本机实证（探针 probe_rawforce.py）
+- 不过滤时的真实接触力 = **15万牛 / 4353牛 / 6900牛**，全是夹爪暴力穿透砸门。
+- 旧 policy（你 B38 训的）reward 看到 force=0（被过滤），所以"怼得狠"零惩罚 → policy 学会暴力。
+- 修复后 verify_force_seen.py：reward 看到的 force_max 从 **0 → 200.0N（饱和封顶）**。暴力终于被看见、被罚。
+
+### reward 地形已验证站得住（本机算账）
+- 接触阶段每步：温柔(force10,gentle) 比 暴力(force200) 多赚 **+7.55/step**，50步差 +377。
+- 整 episode：温柔总分 671 vs 暴力 196，gap **+475**。
+- 结论：A30/A31/A32/A33 修完后，**reward 地形对了**。只要 policy 找到温柔路径就能多赚 475 分。
+
+### 本机 fresh 重训现象（CPU，分段，共6000步）
+- 不加载旧暴力 policy，从头训。force early 43N → 6000步时 345N（仍在涨，UP）。
+- **这是正常的早期探索**：SAC 先学"怎么把门弄开"（success bonus=500 强信号），还没进入"优化省力"阶段。CPU 一段才3000步/114s，跑到温柔解要几万步，CPU 上不现实。
+
+### 请你（显卡机）做的事
+1. `git pull` 拿到本 commit（env 已含 A32/A33，**这次力日志是真实不可造假的力**）。
+2. 跑一次**完整长训**（建议 SAC 300k+，或先 100k 看趋势），run-name 带 a33。
+3. 报 contact-gated SR + **真实 force（现在统计对了）** 的 early/late 趋势。
+4. 关键看点：力能否在惩罚作用下从早期高位**降到 5-15N**（A28 力档曲线证明门只需 3-5N 就开）。
+
+### ⚠️ 给你的提醒
+- 别再信任何 force≈0 却门大开的 episode —— 那以前是盲区，现在修了，如果还出现就是真 bug 找我。
+- env 力控逻辑（impedance/qfrc/重力补偿）我一行没碰，只动了力统计 + reward。
+- 看门狗 watch_and_work.py 会改 env 常量（LAMBDA_F/FORCE_THRESHOLD/LAMBDA_K），跑前请确认常量没被它改回去：当前应为 LAMBDA_F=0.03, FORCE_THRESHOLD=15.0。
+
+**【交接棒】→ B（显卡机）：pull → 跑 a33 长训 → 报真实力趋势。**
+
