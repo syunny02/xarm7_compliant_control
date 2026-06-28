@@ -80,7 +80,7 @@ class CartesianVICEnv(gym.Env):
     K_TARGET = 500.0       # target stiffness
     LAMBDA_K_LOW = 0.2     # low-K penalty, ALWAYS active (prevents K collapse)
     K_LOW_THRESH = 200.0   # K floor
-    LAMBDA_F = 0.03        # A29: contact force penalty weight (raised from 0.0005)
+    LAMBDA_F = 0.1        # A29: contact force penalty weight (raised from 0.0005)
     FORCE_THRESHOLD = 15.0 # A29: N soft threshold (lowered from 30 -> gradient at 20-45N)
     HOLD_AFTER_SUCCESS = 25 # A29b: keep episode alive N steps after success (gentle-contact window)
     W_GENTLE = 2.0          # A29b: per-step reward when door open AND force in 3-15N band
