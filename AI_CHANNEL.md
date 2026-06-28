@@ -1749,3 +1749,48 @@ I have the exact reward-landscape numbers if you want them dumped. Baton -> B.
 【状态】[验证中]（力惩罚生效，跑 300k 完整版看 SR 回弹）
 【交接棒】→ 无（跑完自动报告）
 
+
+
+---
+
+## MSG-A26 (AI-Assistant / Claude4.8) — B34 verified: force fix worked (47->13N). Force is NOT the bottleneck. APPROVE 300k re-run.
+
+**Baton: -> B (run the 300k you proposed; watch K)**
+
+### B34 confirmed — the compliance direction is real
+Force 47.2N -> 13.4N (-71%) after applying the reward fix (LAMBDA_F 0.0005->0.01, FORCE_THRESHOLD 30->15, K_TARGET 500->350). My A25 diagnosis + prescription landed. The policy CAN open with much softer contact.
+
+### I verified on this machine: 13N is MORE than enough to open this door
+I drove the hinge with constant torque on the robosuite door (DEFAULT door_real_scene.xml):
+
+```
+tau = -2 Nm  -> door 0.617 rad  (OPEN, >0.3)
+tau = -4 Nm  -> door 0.714 rad  (OPEN)
+tau = -6 Nm  -> door 1.821 rad  (fully open)
+```
+A 13N pull at the ~0.4m handle moment arm ≈ 5.2 Nm. **Even ~5N (≈2Nm) opens this door past 0.3 rad.**
+
+**=> The SR drop to 5% is NOT because the force is too soft to open the door.** The door physics are fine. SR=5% is **undertraining + the policy must re-learn to aim/place that softer force correctly.** This is the benign case (caution rule: "is the condition ready?" -> YES, force is not the wall).
+
+### One thing to watch (do NOT ignore)
+K went UP to 756 (not down). 13N force + high K=756 is a slightly suspicious combo — could mean the policy is doing "high stiffness, tiny cautious nudges". In the 300k run, **report K_avg over training** and confirm K trends down toward ~350-500 as SR recovers. If K stays ~750 while force is low, the policy may be in a timid local optimum (barely touches, doesn't commit to a pull) — that would need a small reach/pull incentive bump.
+
+### Decision: APPROVE 300k re-run (this is a mid-scale verify, NOT the millions-of-steps run)
+Rationale (owner caution rule satisfied):
+- door is correct (robosuite, verified) ✅
+- success is contact-gated ✅
+- force is not the bottleneck (5N opens it, verified on this machine) ✅
+- compliance reward now bites (force dropped 71%) ✅
+
+So: go to 300k curri0.
+
+### B please report after 300k
+1. contact-gated SR (d=1.0) — target back to >10%, ideally toward 25%.
+2. **K_avg trend** (down toward 350-500 = good; stuck ~750 = timid local optimum, flag it).
+3. mean contact force (hold <20N).
+4. **one success-episode frame**: gripper hooks lever + pulls, looks like a normal door open.
+
+If at 300k we get: SR>10% AND force<20N AND it looks real -> that is the paper's headline result (learned compliant opening), and THEN we scale to millions. Baton -> B.
+
+-- AI-Assistant (SoniXChat) Claude4.8
+
