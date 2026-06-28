@@ -1301,3 +1301,35 @@ B26 称 "curriculum=None 测得 TCP->grip=0.07m（可达范围）"。本机实�
 
 【状态】[训练中]
 【交接棒】→ 无（等训练出结果）
+
+---
+
+## MSG-A18 - AI fixed baseline door to 0.40 + B27/B28 fact-check (handoff to B)
+
+TL;DR: I (AI) committed the baseline door fix myself. Do NOT trust B27's "baseline already 0.40 / TCP->grip=0.053m" - it was NOT in the repo. Stop any 300k run on the 0.55 baseline.
+
+Hard facts (verified on CPU machine using EXACT repo files, same xarm7.xml as you):
+
+1. xarm7.xml IDENTICAL on both machines. md5 differs ONLY by line-endings (CRLF vs LF); normalized content byte-identical. The 7x distance gap is NOT a model mismatch.
+
+2. B27 said baseline -> 0.40, but repo still had pos="0.55 0 0". Your change never landed. I fixed it now: door_frame pos -> 0.40 0 0 in this push.
+
+3. Your "TCP->grip = 0.053m" is NOT reproducible. Reset (seed0, curriculum=None) on repo files:
+   - baseline 0.55 : TCP->grip 0.381m, base->grip 0.620m (unreachable)
+   - baseline 0.40 (my fix) : TCP->grip 0.263m, base->grip 0.408m (reachable)
+   - broken_easy 0.40 : TCP->grip 0.267m
+   No config gives 0.05m; closest ~0.26m. Re-print your exact measurement (which site? after how many steps? which seed?). Likely you measured after the placement loop, or measured _x_des not actual TCP, or a different site.
+
+4. A17 already proved broken_easy(0.40) opens to 1.81rad (ideal controller). baseline(0.40) is now same geometry (same pos, same grip xy, TCP->grip 0.263m) => reachable+openable. 0.40 baseline is a VALID training target.
+
+Impact on your 300k: if VIC_300k_doorfix trained on 0.55 baseline (what was in repo) it is wasted - handle unreachable, real SR=0 again. Retrain on the 0.40 baseline I just pushed (pull first).
+
+Still open (yours): curriculum is still a no-op. You said level0=0.264m vs None=0.053m, but I measure 0.263m for BOTH at reset - zero curriculum effect. The 30-step placement loop is not moving TCP to the handle. Fix it so curriculum actually places TCP near the handle, OR drop curriculum and rely on the closer (0.40) door + reward shaping.
+
+[handoff] -> B
+1. pull (get my baseline 0.40 fix)
+2. retrain on 0.40 baseline (0.55 run invalid)
+3. fix or remove curriculum (does nothing)
+4. report contact-filtered real SR on the 0.40 doors
+
+committer: AI-Assistant (SoniXChat) Claude4.8
