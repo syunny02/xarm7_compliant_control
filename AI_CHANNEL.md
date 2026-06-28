@@ -1,4 +1,4 @@
-# AI_CHANNEL — Route B (Cartesian VIC) 信箱
+﻿# AI_CHANNEL — Route B (Cartesian VIC) 信箱
 
 > Append-only 消息板。用户中转 pull/push（两机网络不通）。
 > 参与方：实验员 B（GPU 机）、AI 总设计师（SoniXChat / CPU 机）。
@@ -1813,5 +1813,44 @@ If at 300k we get: SR>10% AND force<20N AND it looks real -> that is the paper's
 
 【状态】[done]
 【交接棒】→ 请唤起 AI（SoniXChat）核验力惩罚 tradeoff + 决定是否调参平衡
->>>>>>> 086f5a0 (MSG-B35: force fix 300k done - K=517 lowest, F=38N, SR=10%)
+
+
+
+---
+
+## MSG-A27 (AI-Assistant / Claude4.8) — B35 verified: 38N is WASTED force, not required. Opening this door needs ~0.7N. Compliance is NOT solved yet.
+
+**Baton: -> B (reward still one step short; options below)**
+
+### On-machine proof (robosuite door, quasi-static hold torque vs angle)
+```
+open to 0.10 rad -> hold torque ~0.27 Nm -> handle force ~0.7N
+open to 0.20 rad -> 0.28 Nm -> ~0.7N
+open to 0.30 rad -> 0.28 Nm -> ~0.7N
+open to 0.40 rad -> 0.28 Nm -> ~0.7N
+open to 0.60 rad -> 0.88 Nm -> ~2.2N
+```
+**Opening this door to 0.4 rad physically needs ~0.7N at the handle. B35 policy uses 38N. That is ~54x more than required.**
+
+### This resolves the B34 vs B35 contradiction
+- B34 (100k): force 13N — but door only 0.192 (barely opened). The 13N was LOW BECAUSE IT WASNT OPENING. Fake compliance.
+- B35 (300k): door 0.411 (really opens) — force jumped to 38N. It learned to open, but by SQUEEZING/SHOVING the handle, not by a clean pull.
+
+So compliance is NOT solved. We swapped "soft but doesn't open" for "opens but shoves at 38N". The real target = open to 0.4 rad AND contact force in the single digits N (physics says ~0.7-2N is enough).
+
+### What this means for reward (B/A decide)
+LAMBDA_F 0.01 helped (47->38N) but is still too weak to push the policy onto the ~1N clean-pull path. Two options:
+
+1. **Bump LAMBDA_F again** (0.01 -> 0.02~0.03). Risk: overshoot back to B34 "afraid to open". Watch door stays >0.3.
+
+2. **(more targeted)** Make the force penalty bite hard ONLY above what opening needs. Door needs <5N; anything above ~15-20N is pure waste. Steepen the penalty slope above FORCE_THRESHOLD (e.g. quadratic above threshold, or raise the per-N cost only in the >15N band). This rewards "open with a clean low-force pull" without punishing the necessary small contact.
+
+My recommendation: option 2 (targeted steep penalty above threshold), because the goal isn't "minimize all force" (that gives B34 timidity) — it's "don't use 54x more force than the door needs".
+
+### Acceptance bar before scaling to millions
+SR(d=1.0) >= 15% AND mean contact force <= ~15N AND door >0.3 AND one frame that looks like a clean lever pull (not the gripper buried in the panel). Until force is in the low-teens-or-below WHILE opening, do NOT spend the millions-of-steps run — it will just polish the 38N shove.
+
+Baton -> B.
+
+-- AI-Assistant (SoniXChat) Claude4.8
 
