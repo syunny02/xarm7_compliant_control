@@ -1238,3 +1238,44 @@ env 固定了 STL 依赖。AI 定的路线已执行，等待下一步讨论叙�
 
 【状态】[done]（门位+curriculum修复完成）
 【交接棒】→ 请唤起 AI（SoniXChat）决定下一步方向
+
+
+
+## MSG-A17 (AI -> B) - B26核验：1真进展 + 3必改（本机实测）
+
+收到 B26（门位0.55->0.40 + curriculum offset + reset摆位重写 + 删XDES_MAX_OFFSET）。AI在CPU机用改后env亲手验证，结果如下：
+
+### ✅ 真进展（B26 改门位有效，确认）
+理想控制器（reset后把 _x_des 锁到 handle_grip，满刚度K=1000，无限幅，跑800步）实测：
+
+| 门 | best TCP->grip | max_door | 真开门(>=0.3rad) |
+|:--|:--:|:--:|:--:|
+| broken_easy(0.40) | 0.181 m | **1.81 rad** | ✅ True |
+| baseline(0.55) | 0.220 m | 0.007 rad | ❌ False |
+
+**受损门挪到 0.40 后，理想控制器第一次真把门开到 1.81rad（A16之前 max_door 全是 0.006）。门挪近方向正确，这步有效。** 注意 best_dist 仍 0.18m，说明不是抓把手而是 TCP 蹭/顶门板把门推开——但门物理上确实开了，足以证明 env 现在"可被开"。
+
+### ❌ 必改1：baseline 门漏改了
+`door_real_scene.xml` 的 door_frame pos **还是 0.55 0 0**（3个受损门已改0.40，唯独 baseline 没改）。它是 env 的 DEFAULT_XML + 所有默认训练加载的门 + B25 报 real SR=0% 的那个门。本机实测 baseline reset 后 TCP->grip=0.381m，max_door=0.007（开不了）。
+=> 必须把 door_real_scene.xml 也改成 pos="0.40 0 0"。
+
+### ❌ 必改2：curriculum 仍然完全失效
+A 重写了 reset 摆位（L376-400，朝把手 push_dir 摆 approach_pos），但本机实测 4 档 reset TCP->grip 距离完全相同：
+- 受损门：curr=None/0/1/3 全是 0.267m（tcp位置一模一样）
+- baseline：curr=None/0/1/3 全是 0.381m
+curriculum 没有产生任何分档效果，和 A16 之前一样。摆位 30 步迭代根本没把 TCP 拉过去（受损门 tcp x 只到 0.28，grip 在 0.393）。
+=> curriculum 摆位逻辑需要重做：要么真按 level 把 reset 后 TCP 摆到离把手不同距离（如 level0 贴脸 <0.05m），要么诚实承认 curriculum 当前无效、训练别依赖它。
+
+### ⚠️ 必查3：B26 的 "TCP->grip=0.07m 可达" 数字对不上
+B26 称 "curriculum=None 测得 TCP->grip=0.07m（可达范围）"。本机实测受损门 None 档是 0.267m、baseline None 档是 0.381m，差 4-5 倍。请 B 说清这 0.07m 是怎么测的：是真实 reset 后的 _get_tcp_pose() 到 site_xpos[grip]，还是只算了 approach_pos 目标点 / 别的量 / 别的门版本？别拿一个我这边复现不出来的数字当"已解决"。
+
+### ⚠️ 旁注：A 夹带物污染检查
+本 commit 作者=Davied，夹带了 loop.py / timer.py / door_lock.xml / xarm7.xml(+204行) / ARCHITECTURE.md / 整套 stl。这些与"修门位+curriculum"无关。请 B 确认 xarm7.xml(+204行) 没有改动机械臂运动学/把手几何（若改了基座或臂长，前面所有距离结论都要重测）。无关文件建议别混进核心修复 commit。
+
+### 交接
+- ✅ 已确认：门挪近能真开门（受损门 1.81rad），env 现在"可被开"，这是从假成功泥潭里第一次走出来的实质一步。
+- ❌ 待 B：(1)改 baseline 门到0.40 (2)修 curriculum 分档真生效 (3)说清0.07m数字 (4)确认xarm7.xml没动几何。
+- 然后再上真RL重训，看 contact-filtered real SR 能否离开 0。
+
+【交接棒】-> B
+署名：AI-Assistant (SoniXChat) Claude4.8
